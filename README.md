@@ -1,0 +1,231 @@
+# Personal Finance Tracker Telegram Bot
+
+A bilingual (Arabic/English) Telegram bot for personal finance management, powered by Convex serverless backend and Rork Toolkit AI.
+
+## 🎯 Features
+
+- **Natural Language Processing**: Add expenses and income using conversational language
+- **Multi-Account Management**: Track multiple bank accounts, cash, and credit cards
+- **Smart Categorization**: AI-powered transaction categorization
+- **Loan Tracking**: Monitor loans and payment schedules
+- **Bilingual Support**: Full Arabic and English language support
+- **Real-time Balance Updates**: Instant balance calculations and updates
+
+## 🏗️ Architecture
+
+This project uses a **monorepo structure** with npm workspaces:
+
+```
+finance-tracker-telegram-bot/
+├── bot/          - Telegram bot server (Node.js/Express)
+├── convex/       - Convex serverless backend
+├── shared/       - Shared TypeScript types and utilities
+├── docs/         - Project documentation
+└── scripts/      - Build and deployment scripts
+```
+
+### Architecture Diagram
+
+```
+┌─────────────┐
+│   Telegram  │
+│    Users    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│     Bot Server (Express)    │
+│  - Message Handlers         │
+│  - Session Management       │
+│  - Rate Limiting            │
+└──────────┬──────────────────┘
+           │
+           ▼
+┌─────────────────────────────┐
+│   Convex Backend (Cloud)    │
+│  - Database (Real-time)     │
+│  - Business Logic           │
+│  - AI Integration           │
+└──────────┬──────────────────┘
+           │
+           ▼
+┌─────────────────────────────┐
+│   Rork Toolkit API          │
+│  - NLP Processing           │
+│  - Intent Classification    │
+│  - Data Extraction          │
+└─────────────────────────────┘
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js**: 18.x LTS or higher
+- **npm**: 9.x or higher
+- **Telegram Bot Token**: Get from [@BotFather](https://t.me/botfather)
+- **Rork API Key**: Get from Rork dashboard
+- **Convex Account**: Sign up at [convex.dev](https://convex.dev)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd finance-tracker-telegram-bot
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   # Copy environment templates
+   cp .env.example .env
+   cp bot/.env.example bot/.env
+   cp convex/.env.local.example convex/.env.local
+   
+   # Edit .env files with your credentials
+   ```
+
+4. **Initialize Convex**
+   ```bash
+   cd convex
+   npx convex dev
+   # Follow the prompts to create a new project
+   # Copy the CONVEX_URL to your .env files
+   ```
+
+5. **Start the bot server**
+   ```bash
+   cd ../bot
+   npm run dev
+   ```
+
+### Development Workflow
+
+```bash
+# Start all services in parallel
+npm run dev
+
+# Run tests
+npm test
+
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+```
+
+## 📁 Project Structure
+
+### Bot Server (`/bot`)
+- `src/index.ts` - Express server entry point
+- `src/handlers/` - Telegram message and command handlers
+- `src/services/` - Business logic and Convex client
+- `src/utils/` - Utility functions and helpers
+
+### Convex Backend (`/convex`)
+- `schema.ts` - Database schema definition
+- `users.ts`, `accounts.ts`, `transactions.ts`, `loans.ts` - CRUD operations
+- `ai.ts` - Rork API integration
+- `lib/` - Shared utilities and helpers
+
+### Shared Package (`/shared`)
+- `types/` - Shared TypeScript interfaces
+- `constants/` - Shared constants (categories, currencies)
+- `utils/` - Shared utility functions
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token | Yes |
+| `CONVEX_URL` | Convex deployment URL | Yes |
+| `RORK_API_KEY` | Rork Toolkit API key | Yes |
+| `LOG_LEVEL` | Logging level (info/debug/error) | No |
+| `PORT` | Bot server port (default: 3000) | No |
+
+### API Configuration
+
+Rork API configuration is in `config.api.json`:
+- Rate limits
+- Retry policies
+- Timeout settings
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run bot tests only
+npm test --workspace=bot
+
+# Run Convex tests only
+npm test --workspace=convex
+
+# Run with coverage
+npm test -- --coverage
+```
+
+### Test Coverage Requirements
+- **Convex Functions**: 80%+ coverage
+- **Bot Handlers**: 60%+ coverage
+- **Utilities**: 90%+ coverage
+
+## 📚 Documentation
+
+- [Product Requirements](docs/prd.md)
+- [Architecture Overview](docs/architecture.md)
+- [API Reference](docs/api-reference.md)
+- [Coding Standards](docs/architecture/coding-standards.md)
+- [Tech Stack](docs/architecture/tech-stack.md)
+
+## 🚢 Deployment
+
+### Bot Server (Railway)
+```bash
+# Deploy to Railway
+npm run deploy:bot
+```
+
+### Convex Backend
+```bash
+# Deploy to Convex Cloud
+cd convex
+npx convex deploy
+```
+
+## 🛠️ Tech Stack
+
+- **Runtime**: Node.js 18.x LTS
+- **Language**: TypeScript 5.3+
+- **Bot Framework**: node-telegram-bot-api
+- **Backend**: Convex (serverless)
+- **AI/NLP**: Rork Toolkit
+- **Testing**: Jest (bot), Vitest (Convex)
+- **Code Quality**: ESLint, Prettier
+
+## 📝 License
+
+[Add your license here]
+
+## 🤝 Contributing
+
+[Add contribution guidelines here]
+
+## 📧 Support
+
+For issues and questions:
+- Create an issue on GitHub
+- Contact: [your-email@example.com]
+
+---
+
+**Built with ❤️ using Convex and Telegram**

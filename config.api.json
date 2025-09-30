@@ -1,0 +1,40 @@
+{
+  "rorkToolkit": {
+    "baseUrl": "https://toolkit.rork.com",
+    "endpoints": {
+      "textLLM": {
+        "path": "/text/llm/",
+        "method": "POST",
+        "tested": true,
+        "avgResponseTime": 2200,
+        "rateLimit": {
+          "detected": false,
+          "recommended": {
+            "maxConcurrent": 5,
+            "requestsPerMinute": 60
+          }
+        }
+      },
+      "imageGenerate": {
+        "path": "/images/generate/",
+        "method": "POST",
+        "tested": false
+      },
+      "imageEdit": {
+        "path": "/images/edit/",
+        "method": "POST",
+        "tested": false
+      },
+      "speechToText": {
+        "path": "/stt/transcribe/",
+        "method": "POST",
+        "tested": false
+      }
+    },
+    "retryConfig": {
+      "maxRetries": 3,
+      "backoffMs": 1000,
+      "timeoutMs": 5000
+    }
+  }
+}
