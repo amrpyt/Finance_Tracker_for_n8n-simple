@@ -3,7 +3,7 @@ import { convexClient, getMaskedConvexUrl } from "../config/convex";
 import logger from "../utils/logger";
 import { handleConvexError, detectUserLanguage } from "../utils/errors";
 import { getWelcomeMessage, getHelpMessage } from "../utils/messages";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 
 /**
  * Handle /start command.
@@ -35,9 +35,9 @@ export async function handleStartCommand(
 
     // Get personalized welcome message based on user's language preference
     const welcomeMessage = getWelcomeMessage(
-      result.user.firstName,
+      result.user!.firstName,
       result.isNewUser,
-      result.user.languagePreference
+      result.user!.languagePreference as "en" | "ar"
     );
 
     // Send welcome message with Markdown formatting
@@ -49,7 +49,7 @@ export async function handleStartCommand(
       userId: telegramUser.id,
       chatId: msg.chat.id,
       isNewUser: result.isNewUser,
-      languagePreference: result.user.languagePreference,
+      languagePreference: result.user!.languagePreference,
     });
   } catch (error) {
     logger.error("Error handling /start command", {

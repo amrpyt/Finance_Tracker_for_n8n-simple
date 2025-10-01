@@ -90,7 +90,7 @@ export const createOrGetUser = mutation({
 
     // Log user creation event (will appear in Convex dashboard)
     console.log("New user created", {
-      userId: user._id,
+      userId: user!._id,
       telegramUserId: args.telegramUserId,
       firstName: sanitizedFirstName,
       languagePreference,
