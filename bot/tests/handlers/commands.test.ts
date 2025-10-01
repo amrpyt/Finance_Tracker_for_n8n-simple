@@ -14,6 +14,19 @@ jest.mock("../../src/utils/logger", () => ({
   },
 }));
 
+// Mock Convex generated API
+jest.mock("../../convex/_generated/api", () => ({
+  api: {
+    users: {
+      createOrGetUser: "users:createOrGetUser",
+      getUserByTelegramId: "users:getUserByTelegramId",
+    },
+    system: {
+      getSystemStatus: "system:getSystemStatus",
+    },
+  },
+}));
+
 // Mock Convex client
 jest.mock("../../src/config/convex", () => ({
   convexClient: {
@@ -95,12 +108,40 @@ describe("Command Handlers", () => {
       );
     });
 
-    it("should send personalized welcome message for new users", async () => {
+    it("should send personalized welcome message for new users in English", async () => {
       const mockUserResult = {
         user: {
           _id: "user123",
           telegramUserId: "987654321",
-          firstName: "Ahmed",
+          firstName: "John",
+          languagePreference: "en",
+          createdAt: Date.now(),
+        },
+        isNewUser: true,
+      };
+
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
+      await handleStartCommand(mockBot, mockMessage);
+
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("Welcome, John!"),
+        expect.objectContaining({ parse_mode: "Markdown" })
+      );
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("personal finance assistant"),
+        expect.objectContaining({ parse_mode: "Markdown" })
+      );
+    });
+
+    it("should send personalized welcome message for new users in Arabic", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          firstName: "أحمد",
           languagePreference: "ar",
           createdAt: Date.now(),
         },
@@ -113,11 +154,8 @@ describe("Command Handlers", () => {
 
       expect(mockBot.sendMessage).toHaveBeenCalledWith(
         123456789,
-        expect.stringContaining("Welcome, Ahmed!")
-      );
-      expect(mockBot.sendMessage).toHaveBeenCalledWith(
-        123456789,
-        expect.stringContaining("personal finance assistant")
+        expect.stringContaining("أهلاً، أحمد!"),
+        expect.objectContaining({ parse_mode: "Markdown" })
       );
     });
 
@@ -139,7 +177,8 @@ describe("Command Handlers", () => {
 
       expect(mockBot.sendMessage).toHaveBeenCalledWith(
         123456789,
-        expect.stringContaining("Welcome back, Sara!")
+        expect.stringContaining("Welcome back, Sara!"),
+        expect.objectContaining({ parse_mode: "Markdown" })
       );
     });
 
@@ -257,12 +296,30 @@ describe("Command Handlers", () => {
   });
 
   describe("handleHelpCommand", () => {
-    it("should send help message with available commands", async () => {
+    it("should send help message in English with Markdown formatting", async () => {
       await handleHelpCommand(mockBot, mockMessage);
 
       expect(mockBot.sendMessage).toHaveBeenCalledWith(
         123456789,
-        "Available commands:\n/start - Start the bot\n/help - Show this help message"
+        expect.stringContaining("Finance Tracker Bot - Help"),
+        expect.objectContaining({ parse_mode: "Markdown" })
+      );
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("/start"),
+        expect.objectContaining({ parse_mode: "Markdown" })
+      );
+    });
+
+    it("should send help message in Arabic for Arabic users", async () => {
+      mockMessage.from!.language_code = "ar";
+
+      await handleHelpCommand(mockBot, mockMessage);
+
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("بوت تتبع المالية - مساعدة"),
+        expect.objectContaining({ parse_mode: "Markdown" })
       );
     });
 
@@ -280,7 +337,7 @@ describe("Command Handlers", () => {
       );
     });
 
-    it("should log message sent", async () => {
+    it("should log message sent with language", async () => {
       await handleHelpCommand(mockBot, mockMessage);
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -288,11 +345,12 @@ describe("Command Handlers", () => {
         expect.objectContaining({
           userId: 987654321,
           chatId: 123456789,
+          language: "en",
         })
       );
     });
 
-    it("should handle errors gracefully", async () => {
+    it("should handle errors gracefully and send error message", async () => {
       const error = new Error("Send message failed");
       mockBot.sendMessage.mockRejectedValueOnce(error);
 
@@ -305,6 +363,25 @@ describe("Command Handlers", () => {
           userId: 987654321,
           chatId: 123456789,
         })
+      );
+
+      // Should attempt to send error message
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("error displaying the help message")
+      );
+    });
+
+    it("should send Arabic error message for Arabic users", async () => {
+      const error = new Error("Send message failed");
+      mockMessage.from!.language_code = "ar";
+      mockBot.sendMessage.mockRejectedValueOnce(error).mockResolvedValueOnce({} as any);
+
+      await handleHelpCommand(mockBot, mockMessage);
+
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("عذراً")
       );
     });
   });

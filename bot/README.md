@@ -10,6 +10,9 @@ This directory contains the Telegram bot server for the Personal Finance Tracker
 - `src/handlers/` - Message and command handlers
 - `src/services/` - Business logic services
 - `src/utils/` - Utility functions
+  - `messages.ts` - Bilingual message templates for welcome and help messages
+  - `errors.ts` - Error handling and bilingual error messages
+  - `logger.ts` - Structured logging utilities
 - `src/types/` - TypeScript type definitions
 - `tests/` - Unit and integration tests
 
@@ -107,9 +110,97 @@ The bot monitors Convex connection health:
 
 Once the bot is running, users can interact with it using:
 
-- `/start` - Start the bot and receive a welcome message
-- `/help` - Display available commands and help information
+- `/start` - Start the bot and receive a comprehensive welcome message with usage examples
+- `/help` - Display available commands, usage examples, and help information
 - `/status` - Check system status and backend health
+
+### `/start` Command
+
+The `/start` command provides a personalized welcome experience:
+
+**For New Users:**
+- Comprehensive introduction to bot capabilities
+- 3-5 example commands in both English and Arabic
+- Overview of core features (expense tracking, income logging, account management, loan tracking)
+- Formatted with Telegram markdown and emoji for visual clarity
+
+**For Returning Users:**
+- Personalized welcome back message
+- Quick action suggestions
+- Shortcuts to common commands
+
+**Language Support:**
+- Automatically detects user's language preference from Telegram settings
+- Supports both English and Arabic
+- Messages under 300 words for optimal mobile viewing
+
+**Example Welcome Message (English):**
+```
+Welcome, John! 👋
+
+I'm your personal finance assistant. I'll help you track expenses, manage accounts, and stay on top of your finances.
+
+What I can do: 💰
+• 💸 Track expenses - Just tell me what you spent
+• 💵 Log income - Record your earnings
+• 🏦 Manage accounts - Track multiple bank accounts, cash, and credit cards
+• 📊 Monitor loans - Keep track of money you've lent or borrowed
+
+Try these examples:
+• "paid 50 for coffee" / "دفعت 50 على القهوة"
+• "received 5000 salary" / "استلمت 5000 راتب"
+• "lent Ahmed 200" / "أقرضت أحمد 200"
+• /help - See all commands
+
+Let's get started! 🚀
+```
+
+### `/help` Command
+
+The `/help` command displays comprehensive guidance:
+
+**Features:**
+- Complete command reference
+- Usage examples for each feature
+- Natural language examples in both English and Arabic
+- Organized by category (Basic Commands, Account Management, Expense & Income Tracking, Loan Tracking)
+- Formatted with Telegram markdown for readability
+
+**Example Help Message (English):**
+```
+Finance Tracker Bot - Help 📚
+
+Available Commands:
+
+Basic Commands:
+• /start - Start or restart the bot
+• /help - Show this help message
+• /status - Check system status
+
+Account Management: 🏦
+• /accounts - View all your accounts
+• "create account" - Add a new account
+• "set [account] as default" - Change default account
+
+Expense & Income Tracking: 💰
+• "paid [amount] for [item]" - Log an expense
+• "spent [amount] on [category]" - Track spending
+• "received [amount] [description]" - Log income
+• /transactions - View recent transactions
+
+Loan Tracking: 📊
+• "lent [person] [amount]" - Record money you lent
+• "borrowed [amount] from [person]" - Record money you borrowed
+• /loans - View all loans
+
+Natural Language Examples:
+• "paid 50 for coffee"
+• "spent 200 on groceries"
+• "received 5000 salary"
+• "lent Ahmed 200"
+
+I understand both English and Arabic! 🌍
+```
 
 ### `/status` Command Output
 

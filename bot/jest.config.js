@@ -9,12 +9,15 @@ module.exports = {
       tsconfig: {
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
+        skipLibCheck: true,
+        moduleResolution: 'node',
       }
     }]
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@shared/(.*)$': '<rootDir>/../shared/src/$1',
+    '^\\.\\./\\.\\./convex/_generated/api$': '<rootDir>/../convex/_generated/api.js',
   },
   collectCoverageFrom: [
     'src/**/*.ts',

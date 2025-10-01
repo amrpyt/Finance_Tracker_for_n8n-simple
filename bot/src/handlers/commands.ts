@@ -2,6 +2,7 @@ import TelegramBot from "node-telegram-bot-api";
 import { convexClient, getMaskedConvexUrl } from "../config/convex";
 import logger from "../utils/logger";
 import { handleConvexError, detectUserLanguage } from "../utils/errors";
+import { getWelcomeMessage, getHelpMessage } from "../utils/messages";
 import { api } from "../../convex/_generated/api";
 
 /**
@@ -32,12 +33,17 @@ export async function handleStartCommand(
       languageCode: telegramUser.language_code,
     });
 
-    // Personalized welcome message
-    const welcomeMessage = result.isNewUser
-      ? `Welcome, ${result.user.firstName}! 👋\n\nI'm your personal finance assistant. I'll help you track expenses, manage accounts, and stay on top of your finances.\n\nUse /help to see available commands.`
-      : `Welcome back, ${result.user.firstName}! 👋\n\nReady to manage your finances? Use /help to see what I can do.`;
+    // Get personalized welcome message based on user's language preference
+    const welcomeMessage = getWelcomeMessage(
+      result.user.firstName,
+      result.isNewUser,
+      result.user.languagePreference
+    );
 
-    await bot.sendMessage(msg.chat.id, welcomeMessage);
+    // Send welcome message with Markdown formatting
+    await bot.sendMessage(msg.chat.id, welcomeMessage, {
+      parse_mode: "Markdown",
+    });
 
     logger.info("User registration completed", {
       userId: telegramUser.id,
@@ -93,18 +99,24 @@ export async function handleHelpCommand(
       timestamp: Date.now(),
     });
 
-    // Send help text
-    const helpText =
-      "Available commands:\n" +
-      "/start - Start the bot\n" +
-      "/help - Show this help message\n" +
-      "/status - Check system status";
+    // Detect user language
+    const language = detectUserLanguage(
+      msg.text,
+      msg.from?.language_code
+    );
 
-    await bot.sendMessage(msg.chat.id, helpText);
+    // Get help message based on user's language
+    const helpText = getHelpMessage(language);
+
+    // Send help message with Markdown formatting
+    await bot.sendMessage(msg.chat.id, helpText, {
+      parse_mode: "Markdown",
+    });
 
     logger.info("Help message sent", {
       userId: msg.from?.id,
       chatId: msg.chat.id,
+      language,
     });
   } catch (error) {
     logger.error("Error handling /help command", {
@@ -112,6 +124,27 @@ export async function handleHelpCommand(
       userId: msg.from?.id,
       chatId: msg.chat.id,
     });
+
+    // Detect user language for error message
+    const language = detectUserLanguage(
+      msg.text,
+      msg.from?.language_code
+    );
+
+    // Send user-friendly error message
+    const errorMessage =
+      language === "ar"
+        ? "عذراً، حدث خطأ أثناء عرض رسالة المساعدة. يرجى المحاولة مرة أخرى."
+        : "Sorry, there was an error displaying the help message. Please try again.";
+
+    try {
+      await bot.sendMessage(msg.chat.id, errorMessage);
+    } catch (sendError) {
+      logger.error("Failed to send error message", {
+        error: sendError instanceof Error ? sendError.message : "Unknown error",
+        chatId: msg.chat.id,
+      });
+    }
   }
 }
 
