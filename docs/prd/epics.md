@@ -7,12 +7,14 @@
 
 ## Epic Overview
 
-### Epic 1: Foundation & Telegram Bot Setup
+### Epic 1: Foundation & Telegram Bot Setup  ✅ **COMPLETE**
 
 Establish project infrastructure, Telegram bot integration, and basic conversational interface to enable users to interact with the bot and receive responses.
 
-**Stories:** 5 stories (1.1 - 1.5)  
-**Details:** [Epic 1 - Foundation](./epic-1-foundation.md)
+**Status:** ✅ Closed (2025-10-02)  
+**Stories:** 5/5 (100%)  
+**QA Gates:** 5/5 PASS  
+**Details:** [Epic 1 - Foundation](./epic-1-foundation.md) | [Retrospective](../epic-1-retrospective.md)
 
 ---
 

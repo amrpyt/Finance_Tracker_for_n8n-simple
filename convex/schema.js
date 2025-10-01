@@ -12,4 +12,13 @@ exports.default = (0, server_1.defineSchema)({
         createdAt: values_1.v.number(), // Timestamp of user creation
     })
         .index("by_telegram_id", ["telegramUserId"]), // Index for fast lookups
+    accounts: (0, server_1.defineTable)({
+        userId: values_1.v.id("users"), // Reference to users table
+        name: values_1.v.string(), // Account name (e.g., "Main Bank", "Cash Wallet")
+        type: values_1.v.union(values_1.v.literal("bank"), values_1.v.literal("cash"), values_1.v.literal("credit")), // Account type: bank, cash, or credit
+        balance: values_1.v.number(), // Current balance
+        currency: values_1.v.string(), // Currency code (e.g., "EGP", "USD")
+        createdAt: values_1.v.number(), // Timestamp of creation
+    })
+        .index("by_user", ["userId"]), // Index for fast user-specific queries
 });

@@ -3,6 +3,10 @@ import {
   getHelpMessage,
   WELCOME_MESSAGES,
   HELP_MESSAGE,
+  ACCOUNT_LIST_MESSAGES,
+  getAccountListHeader,
+  getEmptyAccountsMessage,
+  getTotalBalanceMessage,
 } from "../../src/utils/messages";
 
 describe("Message Templates", () => {
@@ -184,6 +188,111 @@ describe("Message Templates", () => {
     it("should default to English if language not specified", () => {
       const message = getHelpMessage();
       expect(message).toBe(HELP_MESSAGE.en);
+    });
+  });
+
+  describe("ACCOUNT_LIST_MESSAGES", () => {
+    it("should have header messages in both languages", () => {
+      expect(ACCOUNT_LIST_MESSAGES.header.en).toBeDefined();
+      expect(ACCOUNT_LIST_MESSAGES.header.ar).toBeDefined();
+      expect(ACCOUNT_LIST_MESSAGES.header.en).toContain("Your Accounts");
+      expect(ACCOUNT_LIST_MESSAGES.header.ar).toContain("حساباتك");
+    });
+
+    it("should have empty state messages in both languages", () => {
+      expect(ACCOUNT_LIST_MESSAGES.empty.en).toBeDefined();
+      expect(ACCOUNT_LIST_MESSAGES.empty.ar).toBeDefined();
+      expect(ACCOUNT_LIST_MESSAGES.empty.en).toContain("don't have any accounts");
+      expect(ACCOUNT_LIST_MESSAGES.empty.ar).toContain("ليس لديك أي حسابات");
+    });
+
+    it("should have total balance messages in both languages", () => {
+      expect(ACCOUNT_LIST_MESSAGES.totalBalance.en).toBeDefined();
+      expect(ACCOUNT_LIST_MESSAGES.totalBalance.ar).toBeDefined();
+      expect(ACCOUNT_LIST_MESSAGES.totalBalance.en).toContain("Total Balance");
+      expect(ACCOUNT_LIST_MESSAGES.totalBalance.ar).toContain("الرصيد الإجمالي");
+    });
+
+    it("should contain emoji in messages", () => {
+      const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/u;
+      expect(emojiRegex.test(ACCOUNT_LIST_MESSAGES.header.en)).toBe(true);
+      expect(emojiRegex.test(ACCOUNT_LIST_MESSAGES.header.ar)).toBe(true);
+      expect(emojiRegex.test(ACCOUNT_LIST_MESSAGES.empty.en)).toBe(true);
+      expect(emojiRegex.test(ACCOUNT_LIST_MESSAGES.empty.ar)).toBe(true);
+    });
+  });
+
+  describe("getAccountListHeader", () => {
+    it("should return English header", () => {
+      const header = getAccountListHeader("en");
+      expect(header).toBe(ACCOUNT_LIST_MESSAGES.header.en);
+      expect(header).toContain("Your Accounts");
+    });
+
+    it("should return Arabic header", () => {
+      const header = getAccountListHeader("ar");
+      expect(header).toBe(ACCOUNT_LIST_MESSAGES.header.ar);
+      expect(header).toContain("حساباتك");
+    });
+
+    it("should default to English if language not specified", () => {
+      const header = getAccountListHeader();
+      expect(header).toBe(ACCOUNT_LIST_MESSAGES.header.en);
+    });
+  });
+
+  describe("getEmptyAccountsMessage", () => {
+    it("should return English empty message", () => {
+      const message = getEmptyAccountsMessage("en");
+      expect(message).toBe(ACCOUNT_LIST_MESSAGES.empty.en);
+      expect(message).toContain("create account");
+    });
+
+    it("should return Arabic empty message", () => {
+      const message = getEmptyAccountsMessage("ar");
+      expect(message).toBe(ACCOUNT_LIST_MESSAGES.empty.ar);
+      expect(message).toContain("إنشاء حساب");
+    });
+
+    it("should default to English if language not specified", () => {
+      const message = getEmptyAccountsMessage();
+      expect(message).toBe(ACCOUNT_LIST_MESSAGES.empty.en);
+    });
+  });
+
+  describe("getTotalBalanceMessage", () => {
+    it("should return English total balance message with formatted amount", () => {
+      const message = getTotalBalanceMessage(5000, "en");
+      expect(message).toContain("Total Balance");
+      expect(message).toContain("5000.00");
+      expect(message).toContain("EGP");
+    });
+
+    it("should return Arabic total balance message with formatted amount", () => {
+      const message = getTotalBalanceMessage(5000, "ar");
+      expect(message).toContain("الرصيد الإجمالي");
+      expect(message).toContain("5000.00");
+      expect(message).toContain("جنيه");
+    });
+
+    it("should format decimal places correctly", () => {
+      const message = getTotalBalanceMessage(1234.5, "en");
+      expect(message).toContain("1234.50");
+    });
+
+    it("should handle zero balance", () => {
+      const message = getTotalBalanceMessage(0, "en");
+      expect(message).toContain("0.00");
+    });
+
+    it("should handle negative balance", () => {
+      const message = getTotalBalanceMessage(-500, "en");
+      expect(message).toContain("-500.00");
+    });
+
+    it("should default to English if language not specified", () => {
+      const message = getTotalBalanceMessage(1000);
+      expect(message).toContain("Total Balance");
     });
   });
 });

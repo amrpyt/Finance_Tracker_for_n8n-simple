@@ -2,6 +2,10 @@
 
 A bilingual (Arabic/English) Telegram bot for personal finance management, powered by Convex serverless backend and Rork Toolkit AI.
 
+**🤖 Live Bot:** [@FinanceTracker_coderaai_bot](https://t.me/FinanceTracker_coderaai_bot)  
+**📊 Project Status:** [View Progress](./PROJECT_STATUS.md) | **Epic 1 Complete** ✅ (20% overall)  
+**⚡ Quick Start:** [5-Minute Setup Guide](./QUICK_START.md)
+
 ## 🎯 Features
 
 - **Natural Language Processing**: Add expenses and income using conversational language
@@ -184,11 +188,24 @@ npm test -- --coverage
 
 ## 📚 Documentation
 
-- [Product Requirements](docs/prd.md)
-- [Architecture Overview](docs/architecture.md)
-- [API Reference](docs/api-reference.md)
+### Project Management
+
+- [Project Status](PROJECT_STATUS.md) - Current progress and metrics
+- [Epic 1 Retrospective](docs/epic-1-retrospective.md) - Lessons learned
+
+### Product & Requirements
+
+- [Product Requirements](docs/prd/README.md)
+- [Epic List](docs/prd/epics.md)
+- [Requirements](docs/prd/requirements.md)
+
+### Technical Documentation
+
+- [Architecture Overview](docs/architecture/README.md)
+- [High-Level Architecture](docs/architecture/high-level-architecture.md)
 - [Coding Standards](docs/architecture/coding-standards.md)
 - [Tech Stack](docs/architecture/tech-stack.md)
+- [API Reference](docs/api/users-api.md)
 
 ## 🚢 Deployment
 

@@ -7,3 +7,8 @@ export {
   handleHelpCommand,
   handleStatusCommand 
 } from "./commands";
+
+export {
+  handleMessage,
+  registerMessageHandlers
+} from "./messages";

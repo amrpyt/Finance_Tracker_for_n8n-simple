@@ -159,3 +159,143 @@ export function getWelcomeMessage(
 export function getHelpMessage(language: "en" | "ar" = "en"): string {
   return HELP_MESSAGE[language];
 }
+
+/**
+ * Account creation prompts and messages
+ */
+export const ACCOUNT_PROMPTS = {
+  accountType: {
+    en: `*What type of account would you like to create?* 🏦
+
+Please choose one:
+• 🏦 *Bank* - For bank accounts
+• 💵 *Cash* - For cash wallets
+• 💳 *Credit* - For credit cards
+
+Reply with: bank, cash, or credit`,
+    ar: `*ما نوع الحساب الذي تريد إنشاءه؟* 🏦
+
+الرجاء الاختيار:
+• 🏦 *بنك* - لحسابات البنك
+• 💵 *نقد* - للمحافظ النقدية
+• 💳 *ائتمان* - لبطاقات الائتمان
+
+رد بـ: بنك، نقد، أو ائتمان`,
+  },
+  accountName: {
+    en: `*What should I call this account?* 📝
+
+Please provide a name (1-50 characters):
+Examples: "Main Bank", "Cash Wallet", "Visa Card"`,
+    ar: `*ماذا يجب أن أسمي هذا الحساب؟* 📝
+
+الرجاء تقديم اسم (1-50 حرفاً):
+أمثلة: "البنك الرئيسي"، "محفظة نقدية"، "بطاقة فيزا"`,
+  },
+  initialBalance: {
+    en: `*What's the current balance?* 💰
+
+Please enter the initial balance (or 0 if empty):
+Example: 5000`,
+    ar: `*ما هو الرصيد الحالي؟* 💰
+
+الرجاء إدخال الرصيد الأولي (أو 0 إذا كان فارغاً):
+مثال: 5000`,
+  },
+};
+
+/**
+ * Account confirmation message template
+ */
+export const ACCOUNT_CONFIRMATION: BilingualMessage = {
+  en: `✅ *Account Created Successfully!*
+
+{emoji} *{name}*
+Type: {type}
+Balance: {balance} EGP
+Currency: EGP
+
+Your account is ready to use! 🎉`,
+  ar: `✅ *تم إنشاء الحساب بنجاح!*
+
+{emoji} *{name}*
+النوع: {type}
+الرصيد: {balance} جنيه
+العملة: جنيه
+
+حسابك جاهز للاستخدام! 🎉`,
+};
+
+/**
+ * Get account type prompt based on language
+ */
+export function getAccountTypePrompt(language: "en" | "ar" = "en"): string {
+  return ACCOUNT_PROMPTS.accountType[language];
+}
+
+/**
+ * Get account name prompt based on language
+ */
+export function getAccountNamePrompt(language: "en" | "ar" = "en"): string {
+  return ACCOUNT_PROMPTS.accountName[language];
+}
+
+/**
+ * Get initial balance prompt based on language
+ */
+export function getInitialBalancePrompt(language: "en" | "ar" = "en"): string {
+  return ACCOUNT_PROMPTS.initialBalance[language];
+}
+
+/**
+ * Account list messages
+ */
+export const ACCOUNT_LIST_MESSAGES = {
+  header: {
+    en: "🏦 *Your Accounts*\n",
+    ar: "🏦 *حساباتك*\n",
+  },
+  empty: {
+    en: `You don't have any accounts yet. 📭
+
+Create your first account by typing:
+• "create account" or
+• "إنشاء حساب"`,
+    ar: `ليس لديك أي حسابات حتى الآن. 📭
+
+أنشئ حسابك الأول بكتابة:
+• "إنشاء حساب" أو
+• "create account"`,
+  },
+  totalBalance: {
+    en: "\n💰 *Total Balance:* {total} EGP",
+    ar: "\n💰 *الرصيد الإجمالي:* {total} جنيه",
+  },
+};
+
+/**
+ * Get account list header message
+ */
+export function getAccountListHeader(language: "en" | "ar" = "en"): string {
+  return ACCOUNT_LIST_MESSAGES.header[language];
+}
+
+/**
+ * Get empty accounts message
+ */
+export function getEmptyAccountsMessage(language: "en" | "ar" = "en"): string {
+  return ACCOUNT_LIST_MESSAGES.empty[language];
+}
+
+/**
+ * Get total balance footer message
+ */
+export function getTotalBalanceMessage(
+  total: number,
+  language: "en" | "ar" = "en"
+): string {
+  return ACCOUNT_LIST_MESSAGES.totalBalance[language].replace(
+    "{total}",
+    total.toFixed(2)
+  );
+}

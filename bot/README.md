@@ -114,6 +114,45 @@ Once the bot is running, users can interact with it using:
 - `/help` - Display available commands, usage examples, and help information
 - `/status` - Check system status and backend health
 
+### Natural Language Features
+
+The bot supports conversational account creation in both English and Arabic:
+
+**Account Creation:**
+- English: `"create account"`, `"new account"`, `"add account"`
+- Arabic: `"إنشاء حساب"`, `"أضف حساب"`, `"حساب جديد"`
+
+The bot will guide you through a 3-step process:
+1. **Account Type** - Choose bank, cash, or credit
+2. **Account Name** - Provide a name (1-50 characters)
+3. **Initial Balance** - Enter starting balance (defaults to 0)
+
+**Example Flow:**
+```
+User: create account
+Bot: What type of account would you like to create? 🏦
+     • 🏦 Bank - For bank accounts
+     • 💵 Cash - For cash wallets
+     • 💳 Credit - For credit cards
+     Reply with: bank, cash, or credit
+
+User: bank
+Bot: What should I call this account? 📝
+     Examples: "Main Bank", "Cash Wallet", "Visa Card"
+
+User: Main Bank
+Bot: What's the current balance? 💰
+     Please enter the initial balance (or 0 if empty)
+
+User: 5000
+Bot: ✅ Account Created Successfully!
+     🏦 Main Bank
+     Type: Bank
+     Balance: 5000 EGP
+     Currency: EGP
+     Your account is ready to use! 🎉
+```
+
 ### `/start` Command
 
 The `/start` command provides a personalized welcome experience:

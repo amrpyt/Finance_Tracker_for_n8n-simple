@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "npx ts-node src/index.ts",
+    "dev": "npx ts-node --transpile-only src/index.ts",
     "build": "npx tsc",
     "test": "npx jest",
     "lint": "npx eslint src --ext .ts"

@@ -11,4 +11,18 @@ export default defineSchema({
     createdAt: v.number(),            // Timestamp of user creation
   })
     .index("by_telegram_id", ["telegramUserId"]), // Index for fast lookups
+
+  accounts: defineTable({
+    userId: v.id("users"),            // Reference to users table
+    name: v.string(),                 // Account name (e.g., "Main Bank", "Cash Wallet")
+    type: v.union(
+      v.literal("bank"),
+      v.literal("cash"),
+      v.literal("credit")
+    ),                                // Account type: bank, cash, or credit
+    balance: v.number(),              // Current balance
+    currency: v.string(),             // Currency code (e.g., "EGP", "USD")
+    createdAt: v.number(),            // Timestamp of creation
+  })
+    .index("by_user", ["userId"]),    // Index for fast user-specific queries
 });
