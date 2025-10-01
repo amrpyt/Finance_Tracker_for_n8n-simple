@@ -1,0 +1,22 @@
+import { query } from "./_generated/server";
+
+/**
+ * System health check query.
+ * Returns the current status of the Convex backend.
+ * 
+ * This function is called by the bot server on startup and via the /status command
+ * to verify connectivity and measure round-trip latency.
+ * 
+ * @returns Health check object with status, timestamp, version, and message
+ */
+export const getSystemStatus = query({
+  args: {},
+  handler: async () => {
+    return {
+      status: "healthy",
+      timestamp: Date.now(),
+      version: "1.0.0",
+      message: "Convex backend is operational",
+    };
+  },
+});

@@ -1,10 +1,9 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
     "target": "ES2021",
     "lib": ["ES2021"],
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -13,8 +12,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "outDir": "./dist",
-    "rootDir": "."
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true
   },
   "include": ["./**/*"],
   "exclude": ["node_modules", "_generated", "dist"]
