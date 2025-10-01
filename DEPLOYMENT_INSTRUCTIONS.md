@@ -1,4 +1,39 @@
-# Convex Function Deployment Instructions
+# Convex Function Deployment Instructions - Story 1.4
+
+## SSH into VPS and Restart Convex Container
+
+```bash
+ssh root@156.67.25.212
+# Password: 2QEOc478Wp9eYpivhhhQ2e
+
+# Find the Convex container
+docker ps | grep convex
+
+# Restart the Convex backend container
+docker restart <convex-backend-container-name>
+
+# Or if using docker-compose
+cd /path/to/convex/docker-compose
+docker-compose restart backend
+```
+
+## Alternative: Copy Files Directly to VPS
+
+If the files aren't being picked up automatically, copy them manually:
+
+```bash
+# From your local machine
+scp convex/users.js root@156.67.25.212:/path/to/convex/
+scp convex/schema.js root@156.67.25.212:/path/to/convex/
+
+# Then SSH and restart
+ssh root@156.67.25.212
+docker-compose restart backend
+```
+
+---
+
+# Original Deployment Instructions
 
 ## Self-Hosted Convex Deployment
 

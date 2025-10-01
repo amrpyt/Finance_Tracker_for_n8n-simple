@@ -2,31 +2,48 @@ import TelegramBot from "node-telegram-bot-api";
 import { convexClient, getMaskedConvexUrl } from "../config/convex";
 import logger from "../utils/logger";
 import { handleConvexError, detectUserLanguage } from "../utils/errors";
+import { api } from "../../convex/_generated/api";
 
 /**
  * Handle /start command.
- * Sends a welcome message to the user.
+ * Creates or retrieves user profile and sends personalized welcome message.
  */
 export async function handleStartCommand(
   bot: TelegramBot,
   msg: TelegramBot.Message
 ): Promise<void> {
   try {
+    const telegramUser = msg.from!;
+
     // Log incoming command
     logger.info("Command received", {
       command: "/start",
-      userId: msg.from?.id,
-      username: msg.from?.username,
+      userId: telegramUser.id,
+      username: telegramUser.username,
       chatId: msg.chat.id,
       timestamp: Date.now(),
     });
 
-    // Send welcome message
-    await bot.sendMessage(msg.chat.id, "Hello! I'm your finance bot.");
+    // Create or get user profile
+    const result = await convexClient.mutation(api.users.createOrGetUser, {
+      telegramUserId: telegramUser.id.toString(),
+      username: telegramUser.username,
+      firstName: telegramUser.first_name,
+      languageCode: telegramUser.language_code,
+    });
 
-    logger.info("Welcome message sent", {
-      userId: msg.from?.id,
+    // Personalized welcome message
+    const welcomeMessage = result.isNewUser
+      ? `Welcome, ${result.user.firstName}! 👋\n\nI'm your personal finance assistant. I'll help you track expenses, manage accounts, and stay on top of your finances.\n\nUse /help to see available commands.`
+      : `Welcome back, ${result.user.firstName}! 👋\n\nReady to manage your finances? Use /help to see what I can do.`;
+
+    await bot.sendMessage(msg.chat.id, welcomeMessage);
+
+    logger.info("User registration completed", {
+      userId: telegramUser.id,
       chatId: msg.chat.id,
+      isNewUser: result.isNewUser,
+      languagePreference: result.user.languagePreference,
     });
   } catch (error) {
     logger.error("Error handling /start command", {
@@ -34,6 +51,27 @@ export async function handleStartCommand(
       userId: msg.from?.id,
       chatId: msg.chat.id,
     });
+
+    // Detect user language
+    const language = detectUserLanguage(
+      msg.text,
+      msg.from?.language_code
+    );
+
+    // Send user-friendly error message
+    const errorMessage =
+      language === "ar"
+        ? "عذراً، حدث خطأ أثناء إعداد ملفك الشخصي. يرجى المحاولة مرة أخرى."
+        : "Sorry, there was an error setting up your profile. Please try again.";
+
+    try {
+      await bot.sendMessage(msg.chat.id, errorMessage);
+    } catch (sendError) {
+      logger.error("Failed to send error message", {
+        error: sendError instanceof Error ? sendError.message : "Unknown error",
+        chatId: msg.chat.id,
+      });
+    }
   }
 }
 

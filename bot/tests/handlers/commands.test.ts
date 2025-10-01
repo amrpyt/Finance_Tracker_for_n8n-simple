@@ -1,6 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import { handleStartCommand, handleHelpCommand } from "../../src/handlers/commands";
 import logger from "../../src/utils/logger";
+import { convexClient } from "../../src/config/convex";
 
 // Mock the logger
 jest.mock("../../src/utils/logger", () => ({
@@ -11,6 +12,27 @@ jest.mock("../../src/utils/logger", () => ({
     warn: jest.fn(),
     debug: jest.fn(),
   },
+}));
+
+// Mock Convex client
+jest.mock("../../src/config/convex", () => ({
+  convexClient: {
+    mutation: jest.fn(),
+    query: jest.fn(),
+  },
+  getMaskedConvexUrl: jest.fn(() => "https://*****.convex.cloud"),
+}));
+
+// Mock error utilities
+jest.mock("../../src/utils/errors", () => ({
+  handleConvexError: jest.fn((error, language) => {
+    return language === "ar"
+      ? "عذراً، حدث خطأ"
+      : "Sorry, an error occurred";
+  }),
+  detectUserLanguage: jest.fn((text, languageCode) => {
+    return languageCode === "ar" ? "ar" : "en";
+  }),
 }));
 
 describe("Command Handlers", () => {
@@ -45,16 +67,121 @@ describe("Command Handlers", () => {
   });
 
   describe("handleStartCommand", () => {
-    it("should send welcome message", async () => {
+    it("should call createOrGetUser with correct Telegram data", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          username: "testuser",
+          firstName: "Test",
+          languagePreference: "en",
+          createdAt: Date.now(),
+        },
+        isNewUser: true,
+      };
+
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
+      await handleStartCommand(mockBot, mockMessage);
+
+      expect(convexClient.mutation).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          telegramUserId: "987654321",
+          username: "testuser",
+          firstName: "Test",
+          languageCode: undefined,
+        })
+      );
+    });
+
+    it("should send personalized welcome message for new users", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          firstName: "Ahmed",
+          languagePreference: "ar",
+          createdAt: Date.now(),
+        },
+        isNewUser: true,
+      };
+
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
       await handleStartCommand(mockBot, mockMessage);
 
       expect(mockBot.sendMessage).toHaveBeenCalledWith(
         123456789,
-        "Hello! I'm your finance bot."
+        expect.stringContaining("Welcome, Ahmed!")
+      );
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("personal finance assistant")
+      );
+    });
+
+    it("should send welcome back message for existing users", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          firstName: "Sara",
+          languagePreference: "en",
+          createdAt: Date.now(),
+        },
+        isNewUser: false,
+      };
+
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
+      await handleStartCommand(mockBot, mockMessage);
+
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("Welcome back, Sara!")
+      );
+    });
+
+    it("should extract language_code from Telegram user object", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          firstName: "Test",
+          languagePreference: "ar",
+          createdAt: Date.now(),
+        },
+        isNewUser: true,
+      };
+
+      mockMessage.from!.language_code = "ar";
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
+      await handleStartCommand(mockBot, mockMessage);
+
+      expect(convexClient.mutation).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          languageCode: "ar",
+        })
       );
     });
 
     it("should log command received", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          firstName: "Test",
+          languagePreference: "en",
+          createdAt: Date.now(),
+        },
+        isNewUser: true,
+      };
+
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
       await handleStartCommand(mockBot, mockMessage);
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -68,31 +195,63 @@ describe("Command Handlers", () => {
       );
     });
 
-    it("should log message sent", async () => {
+    it("should log user registration completion", async () => {
+      const mockUserResult = {
+        user: {
+          _id: "user123",
+          telegramUserId: "987654321",
+          firstName: "Test",
+          languagePreference: "en",
+          createdAt: Date.now(),
+        },
+        isNewUser: true,
+      };
+
+      (convexClient.mutation as jest.Mock).mockResolvedValueOnce(mockUserResult);
+
       await handleStartCommand(mockBot, mockMessage);
 
       expect(logger.info).toHaveBeenCalledWith(
-        "Welcome message sent",
+        "User registration completed",
         expect.objectContaining({
           userId: 987654321,
-          chatId: 123456789,
+          isNewUser: true,
+          languagePreference: "en",
         })
       );
     });
 
-    it("should handle errors gracefully", async () => {
-      const error = new Error("Send message failed");
-      mockBot.sendMessage.mockRejectedValueOnce(error);
+    it("should handle Convex mutation errors gracefully", async () => {
+      const error = new Error("Convex connection failed");
+      (convexClient.mutation as jest.Mock).mockRejectedValueOnce(error);
 
       await handleStartCommand(mockBot, mockMessage);
 
       expect(logger.error).toHaveBeenCalledWith(
         "Error handling /start command",
         expect.objectContaining({
-          error: "Send message failed",
+          error: "Convex connection failed",
           userId: 987654321,
           chatId: 123456789,
         })
+      );
+
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("error setting up your profile")
+      );
+    });
+
+    it("should send Arabic error message for Arabic users", async () => {
+      const error = new Error("Convex error");
+      mockMessage.from!.language_code = "ar";
+      (convexClient.mutation as jest.Mock).mockRejectedValueOnce(error);
+
+      await handleStartCommand(mockBot, mockMessage);
+
+      expect(mockBot.sendMessage).toHaveBeenCalledWith(
+        123456789,
+        expect.stringContaining("عذراً")
       );
     });
   });
