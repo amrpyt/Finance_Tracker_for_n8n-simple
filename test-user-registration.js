@@ -2,7 +2,7 @@
 // Run with: node test-user-registration.js
 
 // Use fetch API directly instead of convex/browser
-const CONVEX_URL = "https://genral-data-bases-convex-1faac1-156-67-25-212.coderaai.com";
+const CONVEX_URL = "https://ceaseless-cardinal-528.convex.cloud";
 
 async function callConvexMutation(functionName, args) {
   const response = await fetch(`${CONVEX_URL}/api/mutation`, {
@@ -71,7 +71,7 @@ async function testUserRegistration() {
     console.log("Test 1: Creating new user...");
     const testUserId = `test_${Date.now()}`;
     
-    const result1 = await callConvexMutation("users.js:createOrGetUser", {
+    const result1 = await callConvexMutation("users:createOrGetUser", {
       telegramUserId: testUserId,
       username: "testuser",
       firstName: "Ahmed",
@@ -88,7 +88,7 @@ async function testUserRegistration() {
     
     // Test 2: Get existing user
     console.log("Test 2: Getting existing user...");
-    const result2 = await callConvexMutation("users.js:createOrGetUser", {
+    const result2 = await callConvexMutation("users:createOrGetUser", {
       telegramUserId: testUserId,
       username: "testuser",
       firstName: "Ahmed",
@@ -102,7 +102,7 @@ async function testUserRegistration() {
     
     // Test 3: Query user by Telegram ID
     console.log("Test 3: Querying user by Telegram ID...");
-    const result3 = await callConvexQuery("users.js:getUserByTelegramId", {
+    const result3 = await callConvexQuery("users:getUserByTelegramId", {
       telegramUserId: testUserId,
     });
     
@@ -114,7 +114,7 @@ async function testUserRegistration() {
     // Test 4: Test language preference defaulting
     console.log("Test 4: Testing language preference (no languageCode)...");
     const testUserId2 = `test_${Date.now()}_2`;
-    const result4 = await callConvexMutation("users.js:createOrGetUser", {
+    const result4 = await callConvexMutation("users:createOrGetUser", {
       telegramUserId: testUserId2,
       firstName: "Sara",
     });
@@ -126,7 +126,7 @@ async function testUserRegistration() {
     // Test 5: Test English language preference
     console.log("Test 5: Testing English language preference...");
     const testUserId3 = `test_${Date.now()}_3`;
-    const result5 = await callConvexMutation("users.js:createOrGetUser", {
+    const result5 = await callConvexMutation("users:createOrGetUser", {
       telegramUserId: testUserId3,
       firstName: "John",
       languageCode: "en",
