@@ -129,32 +129,80 @@ export function formatAccountsList(
     type: string;
     balance: number;
     currency: string;
+    isDefault?: boolean;
     createdAt: number;
   }>,
   language: "en" | "ar" = "en"
 ): string {
-  // Sort accounts by creation date (oldest first)
-  const sortedAccounts = [...accounts].sort((a, b) => a.createdAt - b.createdAt);
-
-  // Format each account line
-  const accountLines = sortedAccounts.map((account) => {
-    const emoji = getAccountTypeEmoji(account.type);
-    const typeName = getAccountTypeName(account.type, language);
-    return `${emoji} *${account.name}* (${typeName}): ${account.balance} ${account.currency}`;
-  });
-
-  // Calculate total balance
-  const totalBalance = sortedAccounts.reduce(
-    (sum, account) => sum + account.balance,
-    0
+  const sortedAccounts = sortAccountsByCreatedAt(accounts);
+  const accountLines = sortedAccounts.map((account) =>
+    formatAccountBalanceLine(account, language, { includeDefaultIndicator: true })
   );
 
-  // Build complete message
+  const totalBalance = sortedAccounts.reduce((sum, account) => sum + account.balance, 0);
+
   const accountList = accountLines.join("\n");
   const totalLine =
     language === "ar"
-      ? `\n💰 *الرصيد الإجمالي:* ${totalBalance.toFixed(2)} جنيه`
-      : `\n💰 *Total Balance:* ${totalBalance.toFixed(2)} EGP`;
+      ? `\n💰 *الرصيد الإجمالي:* ${formatBalanceAmount(totalBalance)} جنيه`
+      : `\n💰 *Total Balance:* ${formatBalanceAmount(totalBalance)} EGP`;
 
   return accountList + totalLine;
+}
+
+/**
+ * Sort accounts by creation date (oldest first)
+ */
+export function sortAccountsByCreatedAt<T extends { createdAt: number }>(
+  accounts: T[]
+): T[] {
+  return [...accounts].sort((a, b) => a.createdAt - b.createdAt);
+}
+
+interface BalanceLineOptions {
+  includeDefaultIndicator?: boolean;
+}
+
+/**
+ * Format a single account balance line for balance responses
+ */
+export function formatAccountBalanceLine(
+  account: {
+    name: string;
+    type: string;
+    balance: number;
+    currency: string;
+    isDefault?: boolean;
+  },
+  language: "en" | "ar" = "en",
+  options: BalanceLineOptions = {}
+): string {
+  const emoji = getAccountTypeEmoji(account.type);
+  const typeName = getAccountTypeName(account.type, language);
+  const currency = account.currency || "EGP";
+  const defaultIndicator = options.includeDefaultIndicator && account.isDefault ? "⭐ " : "";
+
+  return `${defaultIndicator}${emoji} *${account.name}* (${typeName}): ${formatBalanceAmount(account.balance)} ${currency}`;
+}
+
+/**
+ * Retrieve the default account, falling back to the first account if needed
+ */
+export function getDefaultAccount<T extends { isDefault?: boolean }>(accounts: T[]): T | null {
+  if (!accounts.length) {
+    return null;
+  }
+
+  return accounts.find((account) => account.isDefault) ?? accounts[0];
+}
+
+/**
+ * Format numeric balances without unnecessary decimals
+ */
+export function formatBalanceAmount(amount: number): string {
+  if (Number.isInteger(amount)) {
+    return amount.toString();
+  }
+
+  return amount.toFixed(2);
 }

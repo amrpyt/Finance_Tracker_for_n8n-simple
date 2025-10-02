@@ -274,6 +274,32 @@ Create your first account by typing:
 };
 
 /**
+ * Balance inquiry messages
+ */
+export const BALANCE_MESSAGES = {
+  header: {
+    en: "💰 *Account Balance*",
+    ar: "💰 *رصيد الحساب*",
+  },
+  singleAccount: {
+    en: "{header}\n{balanceLine}",
+    ar: "{header}\n{balanceLine}",
+  },
+  multiAccountDefault: {
+    en: "⭐ *Default Account:*\n{balanceLine}\n\nYou currently have {totalAccounts} accounts.",
+    ar: "⭐ *الحساب الافتراضي:*\n{balanceLine}\n\nلديك حالياً {totalAccounts} حساب/حسابات.",
+  },
+  viewAllPrompt: {
+    en: "To see all balances, type *\"show accounts\"*.",
+    ar: "لعرض جميع الأرصدة، اكتب *\"عرض الحسابات\"*.",
+  },
+  error: {
+    en: "⚠️ Sorry, I couldn't fetch your balance right now. Please try again soon.",
+    ar: "⚠️ عذراً، تعذر جلب رصيدك الآن. يرجى المحاولة لاحقاً.",
+  },
+};
+
+/**
  * Get account list header message
  */
 export function getAccountListHeader(language: "en" | "ar" = "en"): string {
@@ -298,4 +324,99 @@ export function getTotalBalanceMessage(
     "{total}",
     total.toFixed(2)
   );
+}
+
+/**
+ * Get single account balance response
+ */
+export function getSingleAccountBalanceMessage(
+  balanceLine: string,
+  language: "en" | "ar" = "en"
+): string {
+  const header = BALANCE_MESSAGES.header[language];
+  return BALANCE_MESSAGES.singleAccount[language]
+    .replace("{header}", header)
+    .replace("{balanceLine}", balanceLine);
+}
+
+/**
+ * Get multi-account default balance response
+ */
+export function getMultiAccountBalanceMessage(
+  balanceLine: string,
+  totalAccounts: number,
+  language: "en" | "ar" = "en"
+): string {
+  return BALANCE_MESSAGES.multiAccountDefault[language]
+    .replace("{balanceLine}", balanceLine)
+    .replace("{totalAccounts}", totalAccounts.toString());
+}
+
+/**
+ * Get prompt for viewing all account balances
+ */
+export function getViewAllAccountsPrompt(
+  language: "en" | "ar" = "en"
+): string {
+  return BALANCE_MESSAGES.viewAllPrompt[language];
+}
+
+/**
+ * Get generic balance error message
+ */
+export function getBalanceErrorMessage(
+  language: "en" | "ar" = "en"
+): string {
+  return BALANCE_MESSAGES.error[language];
+}
+
+/**
+ * Default account messages
+ */
+export const DEFAULT_ACCOUNT_MESSAGES = {
+  confirmation: {
+    en: "⭐ *'{accountName}'* is now your default account!",
+    ar: "⭐ *'{accountName}'* هو الآن حسابك الافتراضي!",
+  },
+  alreadyDefault: {
+    en: "'{accountName}' is already your default account.",
+    ar: "'{accountName}' هو بالفعل حسابك الافتراضي.",
+  },
+  accountNotFound: {
+    en: "I couldn't find an account with that name. Please try again.",
+    ar: "لم أتمكن من العثور على حساب بهذا الاسم. يرجى المحاولة مرة أخرى.",
+  },
+};
+
+/**
+ * Get default account confirmation message
+ */
+export function getDefaultAccountConfirmation(
+  accountName: string,
+  language: "en" | "ar" = "en"
+): string {
+  return DEFAULT_ACCOUNT_MESSAGES.confirmation[language].replace(
+    "{accountName}",
+    accountName
+  );
+}
+
+/**
+ * Get already default message
+ */
+export function getAlreadyDefaultMessage(
+  accountName: string,
+  language: "en" | "ar" = "en"
+): string {
+  return DEFAULT_ACCOUNT_MESSAGES.alreadyDefault[language].replace(
+    "{accountName}",
+    accountName
+  );
+}
+
+/**
+ * Get account not found message
+ */
+export function getAccountNotFoundMessage(language: "en" | "ar" = "en"): string {
+  return DEFAULT_ACCOUNT_MESSAGES.accountNotFound[language];
 }

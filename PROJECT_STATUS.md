@@ -70,21 +70,18 @@ A bilingual (Arabic/English) Telegram bot for personal finance management, power
 
 **Status:** 🔄 **PLANNED**  
 **Target Start:** 2025-10-02  
-**Stories:** 0/5
 
 ### Planned Stories
 
 - ⏳ **Story 2.1:** Account creation with types (bank/cash/credit)
 - ⏳ **Story 2.2:** Account listing and balance display
-- ⏳ **Story 2.3:** Account editing and deletion
-- ⏳ **Story 2.4:** Default account selection
-- ⏳ **Story 2.5:** Multi-currency support
+ - ⏳ **Story 2.3:** Account editing and deletion
+ - ⏳ **Story 2.4:** Default Account Balance Updates (Manual) — SKIPPED
+ - ⏳ **Story 2.5:** Multi-currency support
 
 **Documentation:** [Epic 2 PRD](./docs/prd/epic-2-accounts.md)
 
 ---
-
-## 📈 Overall Metrics
 
 ### Development Velocity
 

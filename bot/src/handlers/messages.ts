@@ -6,19 +6,29 @@
 import TelegramBot from "node-telegram-bot-api";
 import { convexClient } from "../config/convex";
 import logger from "../utils/logger";
-import { detectUserLanguage } from "../utils/errors";
+import { detectUserLanguage, handleConvexError } from "../utils/errors";
 import {
   getAccountTypePrompt,
   getAccountNamePrompt,
   getInitialBalancePrompt,
   getAccountListHeader,
   getEmptyAccountsMessage,
+  getDefaultAccountConfirmation,
+  getAlreadyDefaultMessage,
+  getAccountNotFoundMessage,
+  getSingleAccountBalanceMessage,
+  getMultiAccountBalanceMessage,
+  getViewAllAccountsPrompt,
+  getBalanceErrorMessage,
 } from "../utils/messages";
 import {
   parseAccountType,
   parseBalance,
   formatAccountConfirmation,
   formatAccountsList,
+  formatAccountBalanceLine,
+  getDefaultAccount,
+  sortAccountsByCreatedAt,
 } from "../utils/accountHelpers";
 import { sessionManager } from "../services/session";
 import { api } from "../../../convex/_generated/api";
@@ -47,6 +57,43 @@ function detectAccountCreationIntent(text: string): boolean {
     normalized.includes("اضف حساب") ||
     normalized.includes("حساب جديد")
   ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Detect if message contains balance inquiry intent
+ */
+function detectBalanceIntent(text: string): boolean {
+  const normalized = text.toLowerCase().trim();
+
+  // English keywords
+  const englishKeywords = [
+    "balance",
+    "my balance",
+    "what's my balance",
+    "whats my balance",
+    "how much do i have",
+    "how much money",
+    "account balance",
+  ];
+
+  if (englishKeywords.some((keyword) => normalized.includes(keyword))) {
+    return true;
+  }
+
+  // Arabic keywords
+  const arabicKeywords = [
+    "رصيدي",
+    "ما هو رصيدي",
+    "كم رصيدي",
+    "الرصيد",
+    "كم عندي",
+  ];
+
+  if (arabicKeywords.some((keyword) => normalized.includes(keyword))) {
     return true;
   }
 
@@ -85,13 +132,52 @@ function detectAccountListIntent(text: string): boolean {
 }
 
 /**
+ * Detect if message contains set default account intent
+ * @param text - User's message text
+ * @returns Object with detected flag and extracted account name
+ */
+function detectSetDefaultIntent(text: string): { detected: boolean; accountName: string | null } {
+  const normalized = text.toLowerCase().trim();
+
+  // English patterns: "set X as default", "make X default"
+  const englishPatterns = [
+    /set\s+(.+?)\s+as\s+default/i,
+    /make\s+(.+?)\s+default/i,
+    /set\s+default\s+to\s+(.+)/i,
+  ];
+
+  for (const pattern of englishPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      return { detected: true, accountName: match[1].trim() };
+    }
+  }
+
+  // Arabic patterns: "اجعل X افتراضي", "اجعل X الافتراضي"
+  const arabicPatterns = [
+    /اجعل\s+(.+?)\s+افتراضي/,
+    /اجعل\s+(.+?)\s+الافتراضي/,
+    /اجعل\s+(.+?)\s+افتراضياً/,
+  ];
+
+  for (const pattern of arabicPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      return { detected: true, accountName: match[1].trim() };
+    }
+  }
+
+  return { detected: false, accountName: null };
+}
+
+/**
  * Handle account creation intent
  */
 async function handleAccountCreationIntent(
   bot: TelegramBot,
   msg: TelegramBot.Message,
   userId: string
-): Promise<void> {
+) {
   const language = detectUserLanguage(msg.text, msg.from?.language_code);
 
   // Start account creation session
@@ -109,13 +195,13 @@ async function handleAccountCreationIntent(
 }
 
 /**
- * Handle account list intent
+ * Handle balance inquiry intent
  */
-async function handleAccountListIntent(
+async function handleBalanceIntent(
   bot: TelegramBot,
   msg: TelegramBot.Message,
   userId: string
-): Promise<void> {
+) {
   const language = detectUserLanguage(msg.text, msg.from?.language_code);
 
   try {
@@ -138,7 +224,6 @@ async function handleAccountListIntent(
       userId: userResult._id,
     });
 
-    // Handle empty state
     if (!accounts || accounts.length === 0) {
       const emptyMsg = getEmptyAccountsMessage(language);
       await bot.sendMessage(msg.chat.id, emptyMsg, { parse_mode: "Markdown" });
@@ -146,7 +231,209 @@ async function handleAccountListIntent(
       return;
     }
 
-    // Format and send account list
+    // Sort accounts by creation date
+    const normalizedAccounts = sortAccountsByCreatedAt(
+      accounts.map((account) => ({
+        ...account,
+        balance: account.balance ?? 0,
+        currency: account.currency ?? "EGP",
+      }))
+    );
+
+    if (normalizedAccounts.length === 1) {
+      const account = normalizedAccounts[0];
+      const balanceLine = formatAccountBalanceLine(account, language);
+      const message = getSingleAccountBalanceMessage(balanceLine, language);
+
+      await bot.sendMessage(msg.chat.id, message, { parse_mode: "Markdown" });
+
+      logger.info("Balance inquiry - single account", {
+        userId,
+        accountId: account._id,
+      });
+      return;
+    }
+
+    const defaultAccount = getDefaultAccount(normalizedAccounts);
+
+    if (!defaultAccount) {
+      const header = getAccountListHeader(language);
+      const accountsList = formatAccountsList(normalizedAccounts, language);
+      await bot.sendMessage(msg.chat.id, `${header}\n${accountsList}`, { parse_mode: "Markdown" });
+
+      logger.warn("Balance inquiry - default account missing", {
+        userId,
+        accountCount: normalizedAccounts.length,
+      });
+      return;
+    }
+
+    const balanceLine = formatAccountBalanceLine(defaultAccount, language, {
+      includeDefaultIndicator: true,
+    });
+    const message = getMultiAccountBalanceMessage(
+      balanceLine,
+      normalizedAccounts.length,
+      language
+    );
+    const viewAllPrompt = getViewAllAccountsPrompt(language);
+
+    await bot.sendMessage(msg.chat.id, `${message}\n\n${viewAllPrompt}`, {
+      parse_mode: "Markdown",
+    });
+
+    logger.info("Balance inquiry - default account shown", {
+      userId,
+      accountId: defaultAccount._id,
+      accountCount: normalizedAccounts.length,
+    });
+  } catch (error) {
+    logger.error("Error fetching balance", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      userId,
+    });
+
+    const errorMsg = getBalanceErrorMessage(language);
+    await bot.sendMessage(msg.chat.id, errorMsg, { parse_mode: "Markdown" });
+
+    const classifiedMessage = handleConvexError(error, language, {
+      context: "balance_inquiry",
+      userId,
+    });
+
+    logger.debug("Balance inquiry detailed error", {
+      userId,
+      errorMessage: classifiedMessage,
+    });
+  }
+}
+
+/**
+ * Handle set default account intent
+ */
+async function handleSetDefaultIntent(
+  bot: TelegramBot,
+  msg: TelegramBot.Message,
+  userId: string,
+  accountName: string
+): Promise<void> {
+  const language = detectUserLanguage(msg.text, msg.from?.language_code);
+
+  try {
+    const userResult = await convexClient.query(api.users.getUserByTelegramId, {
+      telegramUserId: userId,
+    });
+
+    if (!userResult) {
+      const errorMsg =
+        language === "ar"
+          ? "عذراً، لم أتمكن من العثور على حسابك. يرجى استخدام /start للبدء."
+          : "Sorry, I couldn't find your account. Please use /start to begin.";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    const accounts = await convexClient.query(api.accounts.getUserAccounts, {
+      userId: userResult._id,
+    });
+
+    if (!accounts || accounts.length === 0) {
+      const emptyMsg = getEmptyAccountsMessage(language);
+      await bot.sendMessage(msg.chat.id, emptyMsg, { parse_mode: "Markdown" });
+      return;
+    }
+
+    const targetAccount = accounts.find(
+      (acc) => acc.name.toLowerCase() === accountName.toLowerCase()
+    );
+
+    if (!targetAccount) {
+      const notFoundMsg = getAccountNotFoundMessage(language);
+      await bot.sendMessage(msg.chat.id, notFoundMsg);
+      logger.info("Account not found for set default", {
+        userId,
+        requestedName: accountName,
+      });
+      return;
+    }
+
+    const result = await convexClient.mutation(api.accounts.setDefaultAccount, {
+      userId: userResult._id,
+      accountId: targetAccount._id,
+    });
+
+    if (!result) {
+      throw new Error("Failed to set default account");
+    }
+
+    let confirmationMsg: string;
+    if (result.alreadyDefault) {
+      confirmationMsg = getAlreadyDefaultMessage(targetAccount.name, language);
+    } else {
+      confirmationMsg = getDefaultAccountConfirmation(targetAccount.name, language);
+    }
+
+    await bot.sendMessage(msg.chat.id, confirmationMsg, {
+      parse_mode: "Markdown",
+    });
+
+    logger.info("Default account set", {
+      userId,
+      accountId: targetAccount._id,
+      accountName: targetAccount.name,
+      alreadyDefault: result.alreadyDefault,
+    });
+  } catch (error) {
+    logger.error("Error setting default account", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      userId,
+      accountName,
+    });
+
+    const errorMsg =
+      language === "ar"
+        ? "عذراً، حدث خطأ أثناء تعيين الحساب الافتراضي. يرجى المحاولة مرة أخرى."
+        : "Sorry, there was an error setting the default account. Please try again.";
+
+    await bot.sendMessage(msg.chat.id, errorMsg);
+  }
+}
+
+/**
+ * Handle account list intent
+ */
+async function handleAccountListIntent(
+  bot: TelegramBot,
+  msg: TelegramBot.Message,
+  userId: string
+): Promise<void> {
+  const language = detectUserLanguage(msg.text, msg.from?.language_code);
+
+  try {
+    const userResult = await convexClient.query(api.users.getUserByTelegramId, {
+      telegramUserId: userId,
+    });
+
+    if (!userResult) {
+      const errorMsg =
+        language === "ar"
+          ? "عذراً، لم أتمكن من العثور على حسابك. يرجى استخدام /start للبدء."
+          : "Sorry, I couldn't find your account. Please use /start to begin.";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    const accounts = await convexClient.query(api.accounts.getUserAccounts, {
+      userId: userResult._id,
+    });
+
+    if (!accounts || accounts.length === 0) {
+      const emptyMsg = getEmptyAccountsMessage(language);
+      await bot.sendMessage(msg.chat.id, emptyMsg, { parse_mode: "Markdown" });
+      logger.info("Account list shown - empty", { userId });
+      return;
+    }
+
     const header = getAccountListHeader(language);
     const accountsList = formatAccountsList(accounts, language);
     const fullMessage = header + "\n" + accountsList;
@@ -357,6 +644,18 @@ export async function handleMessage(
 
     if (detectAccountListIntent(msg.text)) {
       await handleAccountListIntent(bot, msg, userId);
+      return;
+    }
+
+    if (detectBalanceIntent(msg.text)) {
+      await handleBalanceIntent(bot, msg, userId);
+      return;
+    }
+
+    // Check for set default account intent
+    const setDefaultIntent = detectSetDefaultIntent(msg.text);
+    if (setDefaultIntent.detected && setDefaultIntent.accountName) {
+      await handleSetDefaultIntent(bot, msg, userId, setDefaultIntent.accountName);
       return;
     }
 

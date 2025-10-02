@@ -49,7 +49,6 @@ Enable users to create, manage, and view multiple financial accounts (bank accou
 ---
 
 ## Story 2.3: Default Account Selection
-
 **As a** user,  
 **I want** one account to be my default for transactions,  
 **so that** I don't have to specify the account every time I log an expense.
@@ -66,7 +65,15 @@ Enable users to create, manage, and view multiple financial accounts (bank accou
 
 ---
 
-## Story 2.4: Account Balance Updates (Manual)
+## Story 2.4: Account Balance Updates (Manual) — SKIPPED
+
+Status: SKIPPED (2025-10-02)
+
+Rationale:
+- Manual balance overrides conflict with the AI-first, no-manual-actions policy.
+- Data integrity and auditability risks; prefer corrections via transparent transaction adjustments.
+- Simpler UX and reduced error surface area.
+- Focus scope on AI-driven flows (Story 2.5 balance check, Epic 3 transactions) to influence balances.
 
 **As a** user,  
 **I want** to manually adjust an account balance,  

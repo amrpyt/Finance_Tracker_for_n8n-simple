@@ -22,7 +22,9 @@ export default defineSchema({
     ),                                // Account type: bank, cash, or credit
     balance: v.number(),              // Current balance
     currency: v.string(),             // Currency code (e.g., "EGP", "USD")
+    isDefault: v.boolean(),           // Whether this is the default account for transactions
     createdAt: v.number(),            // Timestamp of creation
   })
-    .index("by_user", ["userId"]),    // Index for fast user-specific queries
+    .index("by_user", ["userId"])     // Index for fast user-specific queries
+    .index("by_user_default", ["userId", "isDefault"]), // Index for fast default account lookup
 });
