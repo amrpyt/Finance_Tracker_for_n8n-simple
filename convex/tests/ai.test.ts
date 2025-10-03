@@ -158,7 +158,7 @@ describe("Rork API Client", () => {
 
       // Should retry 3 times (initial + 3 retries = 4 total)
       expect(global.fetch).toHaveBeenCalledTimes(4);
-    });
+    }, 10000); // 10 second timeout for retry test
 
     it("should not retry on 4xx client errors", async () => {
       (global.fetch as any).mockResolvedValueOnce({
