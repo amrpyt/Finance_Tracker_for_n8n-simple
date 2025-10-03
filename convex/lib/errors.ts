@@ -59,3 +59,42 @@ export function throwUnauthorized() {
     ar: "ليس لديك صلاحية لتنفيذ هذا الإجراء",
   });
 }
+
+/**
+ * AI-specific error factory functions
+ */
+
+export function throwAITimeout() {
+  throw new AppError("AI_TIMEOUT", {
+    en: "AI service is taking too long to respond. Please try again.",
+    ar: "خدمة الذكاء الاصطناعي تستغرق وقتاً طويلاً للرد. يرجى المحاولة مرة أخرى.",
+  });
+}
+
+export function throwAIRateLimit() {
+  throw new AppError("AI_RATE_LIMIT", {
+    en: "Too many AI requests. Please wait a moment and try again.",
+    ar: "طلبات ذكاء اصطناعي كثيرة جداً. يرجى الانتظار قليلاً والمحاولة مرة أخرى.",
+  });
+}
+
+export function throwAIInvalidResponse() {
+  throw new AppError("AI_INVALID_RESPONSE", {
+    en: "Received invalid response from AI service. Please try again.",
+    ar: "تم استلام استجابة غير صالحة من خدمة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.",
+  });
+}
+
+export function throwAIServiceUnavailable() {
+  throw new AppError("AI_SERVICE_UNAVAILABLE", {
+    en: "AI service is temporarily unavailable. Please try again later.",
+    ar: "خدمة الذكاء الاصطناعي غير متاحة مؤقتاً. يرجى المحاولة لاحقاً.",
+  });
+}
+
+export function throwMissingAPIKey() {
+  throw new AppError("MISSING_API_KEY", {
+    en: "AI service is not configured. Please contact support.",
+    ar: "خدمة الذكاء الاصطناعي غير مكوّنة. يرجى الاتصال بالدعم.",
+  });
+}
