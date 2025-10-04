@@ -86,16 +86,12 @@ function getRorkConfig(): RorkConfig {
 }
 
 /**
- * Get API key from environment variable (optional for RORK public endpoint)
+ * Get API key from environment variable (RORK API doesn't require key)
  */
 function getApiKey(): string | null {
-  const apiKey = process.env.RORK_API_KEY;
-  // Allow public access if API key is placeholder or missing
-  if (!apiKey || apiKey === "your-api-key-here") {
-    console.log("[Rork] Using public endpoint (no API key)");
-    return null;
-  }
-  return apiKey;
+  // RORK API works without authentication for basic usage
+  console.log("[Rork] Using public RORK endpoint (no API key required)");
+  return null;
 }
 
 /**

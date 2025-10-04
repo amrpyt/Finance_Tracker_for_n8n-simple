@@ -327,31 +327,46 @@ async function handleNaturalLanguage(ctx: any, update: ProcessedUpdate, userProf
 }
 
 /**
- * Detect user intent using RORK AI with function calling
+ * Detect user intent using RORK AI with function calling (no fallback)
  */
 async function detectIntent(ctx: any, text: string, userProfile: UserProfile): Promise<AIIntentResult> {
   try {
+    console.log(`[messageProcessor] Calling AI for intent detection: "${text}"`);
+    
     const result = await ctx.runAction(internal.rorkIntegration.processUserMessage, {
       text,
       language: userProfile.language,
       userId: userProfile.userId.toString(),
     });
 
-    if (result.success && result.intent !== "unknown") {
+    console.log(`[messageProcessor] AI result:`, result);
+
+    if (result.success) {
       return {
         intent: mapFunctionNameToIntent(result.intent),
-        confidence: result.confidence,
-        entities: result.entities,
+        confidence: result.confidence || 0.8,
+        entities: result.entities || {},
         nextAction: result.needsClarification ? "clarify" : (result.confidence > 0.7 ? "execute" : "clarify"),
       };
     }
 
-    // Fallback to keyword detection
-    return detectIntentFallback(text);
+    // If AI fails, return unknown instead of fallback
+    return {
+      intent: "unknown",
+      confidence: 0.1,
+      entities: {},
+      nextAction: "clarify",
+    };
 
   } catch (error) {
-    console.warn(`[messageProcessor] AI intent detection failed:`, error);
-    return detectIntentFallback(text);
+    console.error(`[messageProcessor] AI intent detection failed:`, error);
+    // Return unknown instead of fallback
+    return {
+      intent: "unknown", 
+      confidence: 0.1,
+      entities: {},
+      nextAction: "clarify",
+    };
   }
 }
 
@@ -479,8 +494,8 @@ async function routeByIntent(ctx: any, update: ProcessedUpdate, userProfile: Use
     await ctx.runAction(internal.telegramAPI.sendMessage, {
       chatId: update.chatId,
       text: userProfile.language === "ar"
-        ? "لم أفهم طلبك بوضوح. جرب استخدام الأوامر مثل /help"
-        : "I didn't understand your request clearly. Try using commands like /help",
+        ? "عذراً، لم أتمكن من فهم رسالتك. يمكنك:\n\n📝 تسجيل مصروف: 'صرفت 50 جنيه على قهوة'\n💰 تسجيل دخل: 'استلمت راتب 3000'\n💳 معرفة الرصيد: 'كم رصيدي؟'\n\nأو اكتب /help للمساعدة"
+        : "Sorry, I couldn't understand your message. You can:\n\n📝 Log expense: 'I spent 50 EGP on coffee'\n💰 Log income: 'I received salary 3000'\n💳 Check balance: 'What's my balance?'\n\nOr type /help for assistance",
     });
     return { success: false, reason: "clarification_needed" };
   }
@@ -525,8 +540,8 @@ async function routeByIntent(ctx: any, update: ProcessedUpdate, userProfile: Use
       await ctx.runAction(internal.telegramAPI.sendMessage, {
         chatId: update.chatId,
         text: userProfile.language === "ar"
-          ? "لم أستطع فهم طلبك. اكتب /help للمساعدة"
-          : "I couldn't understand your request. Type /help for assistance",
+          ? "عذراً، لم أتمكن من فهم رسالتك. يمكنك:\n\n📝 تسجيل مصروف: 'صرفت 50 جنيه على قهوة'\n💰 تسجيل دخل: 'استلمت راتب 3000'\n💳 معرفة الرصيد: 'كم رصيدي؟'\n\nأو اكتب /help للمساعدة"
+          : "Sorry, I couldn't understand your message. You can:\n\n📝 Log expense: 'I spent 50 EGP on coffee'\n💰 Log income: 'I received salary 3000'\n💳 Check balance: 'What's my balance?'\n\nOr type /help for assistance",
       });
       return { success: false, reason: "unknown_intent" };
   }
