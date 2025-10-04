@@ -3,8 +3,8 @@
 A bilingual (Arabic/English) Telegram bot for personal finance management, powered entirely by **Convex serverless architecture** with integrated AI and chart generation.
 
 **🤖 Live Bot:** [@FinanceTracker_coderaai_bot](https://t.me/FinanceTracker_coderaai_bot)  
-**📊 Project Status:** **Epic 7 Complete** ✅ - Full Convex-Only Migration  
-**⚡ Architecture:** **Serverless-First** - No servers to manage!
+**📊 Project Status:** **Epic 7 Complete** ✅ - Pure Convex + Telegram Architecture  
+**⚡ Architecture:** **100% Serverless** - Zero infrastructure, pure Convex + Telegram!
 
 ## 🎯 Features
 
@@ -18,20 +18,24 @@ A bilingual (Arabic/English) Telegram bot for personal finance management, power
 
 ## 🏗️ Architecture
 
-**✨ Fully Serverless Convex-Only Architecture** - No servers, no infrastructure management!
+**✨ Pure Convex + Telegram Architecture** - Zero servers, 100% serverless!
 
 ```text
 finance-tracker-telegram-bot/
-├── convex/       - Complete serverless backend
+├── convex/                   - Complete serverless backend
 │   ├── telegram.ts           - Webhook handler (HTTP Action)
-│   ├── messageProcessor.ts   - Main message routing
-│   ├── expenseActions.ts     - Expense/income logic
-│   ├── balanceActions.ts     - Balance checking
-│   ├── chartGenerator.ts     - Chart generation
-│   ├── telegramAPI.ts        - Bot API integration
-│   ├── rorkIntegration.ts    - AI processing
-│   └── userProfiles.ts       - User management
-└── docs/         - Project documentation
+│   ├── messageProcessor.ts   - Main message routing & AI integration
+│   ├── expenseActions.ts     - Expense/income processing
+│   ├── balanceActions.ts     - Balance checking & history
+│   ├── chartGenerator.ts     - Chart generation (QuickChart)
+│   ├── telegramAPI.ts        - Telegram Bot API client
+│   ├── rorkIntegration.ts    - RORK AI processing
+│   ├── userProfiles.ts       - User management
+│   ├── accounts.ts           - Account management
+│   ├── transactions.ts       - Transaction operations
+│   └── schema.ts             - Database schema
+├── docs/                     - Documentation
+└── package.json              - Convex-only dependencies
 ```
 
 ### Architecture Diagram

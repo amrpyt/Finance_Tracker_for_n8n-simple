@@ -70,7 +70,7 @@ Simplify architecture by removing Trigger.dev entirely and implementing all func
 
 **Status:** ✅ Complete (2025-10-04)  
 **Stories:** 1 story (7.1) - Full migration completed  
-**Production:** https://ceaseless-cardinal-528.convex.cloud  
+**Production:** <https://ceaseless-cardinal-528.convex.cloud>  
 **Details:** [Epic 7 - Convex-Only Architecture](./epic-7-convex-only-architecture.md)
 
 **Key Achievements:**

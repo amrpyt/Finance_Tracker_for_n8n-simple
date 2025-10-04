@@ -112,6 +112,132 @@ export const processText = internalAction({
 });
 
 /**
+ * Process user message with function calling (internal - called from other actions)
+ */
+export const processUserMessage = internalAction({
+  args: {
+    text: v.string(),
+    language: v.string(),
+    userId: v.string(),
+  },
+  handler: async (ctx, { text, language, userId }) => {
+    console.log(`[rorkIntegration] Processing user message with function calling`, {
+      textLength: text.length,
+      language,
+      userId,
+    });
+
+    try {
+      // Import function definitions
+      const { getFunctionDefinitions } = await import("./prompts/functions");
+      const { generateSystemPrompt } = await import("./prompts/system");
+      
+      // Get user context for personalized prompt
+      const userContext = {
+        userLanguage: language as "ar" | "en",
+        userName: "User", // Could be enhanced to get actual name
+      };
+      
+      const systemPrompt = generateSystemPrompt(userContext);
+      const functions = getFunctionDefinitions();
+      
+      const url = `${RORK_CONFIG.baseUrl}${RORK_CONFIG.endpoint}`;
+      
+      const requestBody = {
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+          {
+            role: "user",
+            content: text,
+          },
+        ],
+        functions: functions,
+        function_call: "auto",
+        temperature: 0.3,
+        max_tokens: 1000,
+      };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), RORK_CONFIG.timeout);
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.status === 429) {
+          throw new Error("Rate limited by RORK API");
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`RORK API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Parse function call response
+        const functionCall = data.function_call;
+        if (functionCall) {
+          const functionName = functionCall.name;
+          const functionArgs = JSON.parse(functionCall.arguments || "{}");
+          
+          return {
+            success: true,
+            intent: functionName,
+            entities: functionArgs,
+            confidence: functionArgs.confidence || 0.8,
+            reasoning: functionArgs.reasoning || "",
+            needsClarification: functionArgs.clarification_needed || false,
+          };
+        } else {
+          // Fallback to content parsing
+          const content = data.completion || data.content || data.message || "";
+          return {
+            success: true,
+            intent: "unknown",
+            entities: {},
+            confidence: 0.3,
+            reasoning: "No function call detected",
+            content,
+          };
+        }
+
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        
+        if (error.name === "AbortError") {
+          throw new Error(`RORK API timeout after ${RORK_CONFIG.timeout}ms`);
+        }
+        
+        throw error;
+      }
+
+    } catch (error: any) {
+      console.error(`[rorkIntegration] Function calling failed:`, error);
+      
+      return {
+        success: false,
+        error: error.message,
+        intent: "unknown",
+        entities: {},
+        confidence: 0,
+      };
+    }
+  },
+});
+
+/**
  * Build system prompt for RORK based on language and context
  */
 function buildSystemPrompt(language: string, context: string): string {

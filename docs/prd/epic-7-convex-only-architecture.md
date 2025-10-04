@@ -85,7 +85,7 @@ graph TB
 - **Simplified Deployment:** Single `npx convex deploy` command
 - **Cost Reduction:** $0 Trigger.dev costs (was $20-50/month projected)
 - **Easier Debugging:** Single-platform logging in Convex dashboard
-- **Production Deployment:** Successfully deployed to https://ceaseless-cardinal-528.convex.cloud
+- **Production Deployment:** Successfully deployed to <https://ceaseless-cardinal-528.convex.cloud>
 
 ---
 
@@ -272,18 +272,18 @@ TELEGRAM_BOT_TOKEN=<your-bot-token>
 ### External APIs
 
 **RORK Integration:**
-- Endpoint: `https://toolkit.rork.com/text/llm/`
+- Endpoint: `<https://toolkit.rork.com/text/llm/>`
 - No authentication required (free endpoint)
 - Request format: OpenAI-compatible messages array
 - Response parsing: Extract content and handle errors
 
 **Telegram Bot API:**
-- Base URL: `https://api.telegram.org/bot{TOKEN}/`
+- Base URL: `<https://api.telegram.org/bot{TOKEN}/>`
 - Key methods: `sendMessage`, `answerCallbackQuery`, `sendPhoto`
 - Error handling: Respect rate limits, handle user blocking
 
 **QuickChart API (New):**
-- Endpoint: `https://quickchart.io/chart`
+- Endpoint: `<https://quickchart.io/chart>`
 - Chart types: pie, bar, line, doughnut
 - No authentication required for basic usage
 - Returns image URLs for Telegram photo sending

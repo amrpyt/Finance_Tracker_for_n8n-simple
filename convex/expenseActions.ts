@@ -179,6 +179,173 @@ export const addIncome = internalAction({
 });
 
 /**
+ * Process Income with AI Extraction (internal - called from messageProcessor)
+ */
+export const processIncomeWithAI = internalAction({
+  args: {
+    userId: v.number(),
+    chatId: v.number(),
+    text: v.string(),
+    language: v.string(),
+  },
+  handler: async (ctx, { userId, chatId, text, language }) => {
+    console.log(`[expenseActions] Processing income with AI for user ${userId}`);
+
+    try {
+      // Step 1: Use AI to extract income information
+      const aiResult = await ctx.runAction(internal.rorkIntegration.processUserMessage, {
+        text,
+        language,
+        userId: userId.toString(),
+      });
+
+      if (!aiResult.success) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "عذراً، فشل في معالجة رسالتك. حاول مرة أخرى."
+            : "Sorry, failed to process your message. Please try again.",
+        });
+        return { success: false, reason: "ai_processing_failed" };
+      }
+
+      // Step 2: Validate AI detected income intent
+      if (aiResult.intent !== "log_income") {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "لم أتمكن من فهم طلب تسجيل الدخل. جرب: 'استلمت راتب 3000'"
+            : "I couldn't understand the income request. Try: 'I received salary 3000'",
+        });
+        return { success: false, reason: "wrong_intent" };
+      }
+
+      // Step 3: Handle clarification if needed
+      if (aiResult.needsClarification || aiResult.confidence < 0.7) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "هل يمكنك توضيح المبلغ ومصدر الدخل؟ مثال: 'استلمت راتب 3000 جنيه'"
+            : "Could you clarify the amount and income source? Example: 'I received salary 3000 EGP'",
+        });
+        return { success: false, reason: "clarification_needed" };
+      }
+
+      // Step 4: Validate extracted data
+      const entities = aiResult.entities;
+      if (!entities.amount || entities.amount <= 0) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "يرجى تحديد المبلغ. مثال: 'استلمت 3000 جنيه'"
+            : "Please specify the amount. Example: 'I received 3000 EGP'",
+        });
+        return { success: false, reason: "missing_amount" };
+      }
+
+      if (!entities.description) {
+        entities.description = language === "ar" ? "دخل" : "Income";
+      }
+
+      // Step 5: Get user's default account
+      const account = await getUserDefaultAccount(ctx, userId);
+      if (!account) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "يجب إنشاء حساب أولاً. استخدم /start"
+            : "You need to create an account first. Use /start",
+        });
+        return { success: false, reason: "no_account" };
+      }
+
+      // Step 6: Prepare confirmation message
+      const confirmationText = language === "ar"
+        ? `💰 دخل: ${entities.amount} جنيه\n📝 الوصف: ${entities.description}\n🏦 الحساب: ${account.name}\n📅 التاريخ: اليوم\n\n✅ تأكيد | ❌ إلغاء`
+        : `💰 Income: ${entities.amount} EGP\n📝 Description: ${entities.description}\n🏦 Account: ${account.name}\n📅 Date: Today\n\n✅ Confirm | ❌ Cancel`;
+
+      // Step 7: Send confirmation with inline keyboard
+      const confirmData = {
+        userId: userId.toString(),
+        accountId: account._id,
+        type: "income",
+        amount: entities.amount,
+        description: entities.description,
+        category: entities.category || "Income",
+        date: new Date().toISOString(),
+      };
+
+      const confirmDataEncoded = Buffer.from(JSON.stringify(confirmData)).toString('base64');
+
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: confirmationText,
+        replyMarkup: {
+          inline_keyboard: [[
+            { text: "✅ Confirm", callback_data: `confirm_income:${confirmDataEncoded}` },
+            { text: "❌ Cancel", callback_data: "cancel" },
+          ]],
+        },
+      });
+
+      return {
+        success: true,
+        action: "confirmation_sent",
+        extractedData: entities,
+        confidence: aiResult.confidence,
+      };
+
+    } catch (error: any) {
+      console.error(`[expenseActions] Failed to process income with AI:`, error);
+      
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: language === "ar"
+          ? "عذراً، فشل في معالجة طلب الدخل"
+          : "Sorry, failed to process income request",
+      });
+
+      return { success: false, error: error.message };
+    }
+  },
+});
+
+/**
+ * Process confirmed income (internal - called from messageProcessor)
+ */
+export const processConfirmedIncome = internalAction({
+  args: {
+    incomeData: v.any(),
+    chatId: v.number(),
+    language: v.string(),
+  },
+  handler: async (ctx, { incomeData, chatId, language }) => {
+    try {
+      const income = await ctx.runMutation(internal.transactions.createTransaction, incomeData);
+
+      const successText = language === "ar"
+        ? `✅ تم تسجيل الدخل بنجاح!\n💰 ${incomeData.amount} جنيه - ${incomeData.description}\n📈 الرصيد الجديد: ${income.newBalance} جنيه`
+        : `✅ Income confirmed!\n💰 ${incomeData.amount} EGP - ${incomeData.description}\n📈 New balance: ${income.newBalance} EGP`;
+
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: successText,
+      });
+
+      return { success: true, newBalance: income.newBalance };
+
+    } catch (error: any) {
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: language === "ar" ? "فشل في تسجيل الدخل" : "Failed to log income",
+      });
+
+      return { success: false, error: error.message };
+    }
+  },
+});
+
+/**
  * Process confirmed expense (internal - called from messageProcessor)
  */
 export const processConfirmedExpense = internalAction({

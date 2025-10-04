@@ -1,115 +1,155 @@
-# API Reference - Rork Toolkit
+# API Reference
 
-## Overview
-External API endpoints used in the Finance Tracker application.
+**Version:** 2.0  
+**Last Updated:** 2025-10-04
 
-## Base Configuration
-- **Provider:** Rork Toolkit
-- **Base URL:** `https://toolkit.rork.com`
-- **Authentication:** None required (as of 2025-09-30)
-- **Format:** JSON
+This document provides a reference for all major internal and external APIs used in the Personal Finance Tracker bot.
 
 ---
 
-## Endpoints
+## External APIs
 
-### 1. Text/LLM API
-**Endpoint:** `POST https://toolkit.rork.com/text/llm/`
+This section covers the third-party services the application integrates with.
 
-**Use Cases:**
-- AI-powered financial insights
-- Receipt data extraction
-- Natural language queries
+### 1. Rork Toolkit API
+
+- **Provider:** Rork
+- **Base URL:** `https://toolkit.rork.com`
+- **Authentication:** None required
+- **Primary Use:** Natural Language Understanding (NLU)
+
+**Endpoint:** `POST /text/llm/`
+
+**Description:** Used to interpret user messages, detect intent (e.g., adding an expense, checking a balance), and extract entities (e.g., amount, description) using function-calling capabilities.
 
 **Request Example:**
-```javascript
-const response = await fetch('https://toolkit.rork.com/text/llm/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        messages: [
-            { role: "system", content: "You are a financial assistant" },
-            { role: "user", content: "Analyze this receipt data" }
-        ]
-    })
-});
+```json
+{
+  "model": "default",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an expert financial assistant..."
+    },
+    {
+      "role": "user",
+      "content": "I spent 50 egp on coffee at starbucks"
+    }
+  ],
+  "functions": [
+    {
+      "name": "addExpense",
+      "description": "Logs a new expense transaction.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "amount": { "type": "number" },
+          "description": { "type": "string" }
+        },
+        "required": ["amount", "description"]
+      }
+    }
+  ]
+}
 ```
 
-**Performance Metrics:**
-- ✅ Tested: Yes
-- ⏱️ Avg Response: 2.2 seconds
-- 📊 Success Rate: 100% (60/60 requests)
-- 🚦 Rate Limits: None detected
-
----
-
-### 2. Image Generation API
-**Endpoint:** `POST https://toolkit.rork.com/images/generate/`
-
-**Use Cases:**
-- Generate financial charts/visualizations
-- Create custom graphics
-
-**Status:** ⏳ Not yet tested
-
----
-
-### 3. Image Editing API
-**Endpoint:** `POST https://toolkit.rork.com/images/edit/`
-
-**Use Cases:**
-- Receipt image enhancement
-- OCR preprocessing
-
-**Status:** ⏳ Not yet tested
-
----
-
-### 4. Speech-to-Text API
-**Endpoint:** `POST https://toolkit.rork.com/stt/transcribe/`
-
-**Use Cases:**
-- Voice expense entry
-- Audio note transcription
-
-**Supported Formats:** mp3, wav, m4a
-
-**Status:** ⏳ Not yet tested
-
----
-
-## Implementation Guidelines
-
-### Rate Limiting Strategy
-```javascript
-const API_CONFIG = {
-    maxConcurrentRequests: 5,
-    requestsPerMinute: 60,
-    retryAttempts: 3,
-    backoffMs: 1000
-};
+**Success Response Example:**
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "function_call": {
+          "name": "addExpense",
+          "arguments": "{\"amount\":50,\"description\":\"coffee at starbucks\"}"
+        }
+      }
+    }
+  ]
+}
 ```
 
-### Error Handling
-- **429 Too Many Requests:** Implement exponential backoff
-- **500 Server Error:** Retry with delay
-- **Timeout:** Set 5-second timeout per request
+### 2. Telegram Bot API
 
-### Best Practices
-1. ✅ Cache similar requests
-2. ✅ Implement request queuing
-3. ✅ Add loading states (2+ second response time)
-4. ✅ Monitor for API changes
-5. ✅ Log all API errors
+- **Provider:** Telegram
+- **Base URL:** `https://api.telegram.org/bot<TOKEN>/`
+- **Authentication:** Bot Token in URL
+- **Primary Use:** User interaction (sending messages, photos, keyboards)
+
+**Key Endpoints Used:**
+
+- **`POST /sendMessage`**: Sends a text message to a user.
+- **`POST /sendPhoto`**: Sends an image (used for charts).
+- **`POST /answerCallbackQuery`**: Responds to button presses from inline keyboards.
+
+**Request Example (`sendMessage`):**
+```json
+{
+  "chat_id": 123456789,
+  "text": "✅ Expense logged: 50 EGP for coffee.",
+  "parse_mode": "Markdown"
+}
+```
+
+### 3. QuickChart API
+
+- **Provider:** QuickChart
+- **Base URL:** `https://quickchart.io`
+- **Authentication:** None required (for public charts)
+- **Primary Use:** Generating chart images from data.
+
+**Endpoint:** `POST /chart`
+
+**Description:** Used to generate URLs for chart images that can be sent to the user via the Telegram Bot API. We send a JSON payload defining the chart type, data, and labels.
+
+**Request Example (Pie Chart):**
+```json
+{
+  "chart": {
+    "type": "pie",
+    "data": {
+      "labels": ["Food", "Transport", "Shopping"],
+      "datasets": [{
+        "data": [500, 150, 300]
+      }]
+    }
+  }
+}
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "url": "https://quickchart.io/chart/render/cf-4d1e3c1a-a263-477a-8302-9233b2c1e111"
+}
+```
 
 ---
 
-## Testing
-Test script available: `test-api-rate-limit.js`
+## Internal API (Convex Functions)
 
-Run tests:
-```bash
-node test-api-rate-limit.js
-```
+This section describes the primary entry points and actions within our own Convex backend.
 
-Last tested: 2025-09-30T14:57:06Z
+### Entry Point
+
+- **`convex/http.ts`**: Defines the main webhook endpoint (`/telegram`) that receives all incoming updates from the Telegram Bot API. It performs initial validation and then calls the `messageProcessor` action.
+
+### Key Public Actions
+
+These are the core actions that orchestrate the application's logic. They are defined in the `convex/` directory.
+
+- **`messageProcessor`**: The main router. It takes the incoming message, calls the Rork API for intent detection, and then invokes the appropriate business logic action.
+- **`expenseActions`**: Contains mutations for creating, updating, and deleting expense and income transactions.
+- **`balanceActions`**: Contains queries for fetching account balances and transaction histories.
+- **`accountActions`**: Contains mutations for managing user financial accounts (create, set default, etc.).
+- **`chartGenerator`**: Contains the action that fetches transaction data and calls the QuickChart API to generate a chart URL.
+- **`telegramAPI`**: A wrapper for making calls to the Telegram Bot API (e.g., sending messages).
+
+---
+
+## Deprecated APIs
+
+- **Trigger.dev API**: No longer used as of Epic 7. All orchestration is now handled directly within Convex Actions.

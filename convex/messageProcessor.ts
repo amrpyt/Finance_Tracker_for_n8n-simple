@@ -206,6 +206,9 @@ async function handleCallbackQuery(ctx: any, update: ProcessedUpdate, userProfil
     case "confirm_expense":
       return await handleExpenseConfirmation(ctx, update, param, userProfile);
     
+    case "confirm_income":
+      return await handleIncomeConfirmation(ctx, update, param, userProfile);
+    
     case "cancel":
       return await handleCancelAction(ctx, update, userProfile);
     
@@ -324,18 +327,23 @@ async function handleNaturalLanguage(ctx: any, update: ProcessedUpdate, userProf
 }
 
 /**
- * Detect user intent using RORK AI
+ * Detect user intent using RORK AI with function calling
  */
 async function detectIntent(ctx: any, text: string, userProfile: UserProfile): Promise<AIIntentResult> {
   try {
-    const result = await ctx.runAction(internal.rorkIntegration.processText, {
+    const result = await ctx.runAction(internal.rorkIntegration.processUserMessage, {
       text,
       language: userProfile.language,
-      context: "financial_assistant",
+      userId: userProfile.userId.toString(),
     });
 
-    if (result.success) {
-      return parseAIResponse(result.response, text);
+    if (result.success && result.intent !== "unknown") {
+      return {
+        intent: mapFunctionNameToIntent(result.intent),
+        confidence: result.confidence,
+        entities: result.entities,
+        nextAction: result.needsClarification ? "clarify" : (result.confidence > 0.7 ? "execute" : "clarify"),
+      };
     }
 
     // Fallback to keyword detection
@@ -344,6 +352,28 @@ async function detectIntent(ctx: any, text: string, userProfile: UserProfile): P
   } catch (error) {
     console.warn(`[messageProcessor] AI intent detection failed:`, error);
     return detectIntentFallback(text);
+  }
+}
+
+/**
+ * Map function names from AI to internal intent names
+ */
+function mapFunctionNameToIntent(functionName: string): AIIntentResult["intent"] {
+  switch (functionName) {
+    case "log_expense":
+      return "expense";
+    case "log_income":
+      return "income";
+    case "check_balance":
+      return "balance_check";
+    case "list_accounts":
+      return "list_transactions";
+    case "search_transactions":
+      return "list_transactions";
+    case "ask_clarification":
+      return "help";
+    default:
+      return "unknown";
   }
 }
 
@@ -463,7 +493,7 @@ async function routeByIntent(ctx: any, update: ProcessedUpdate, userProfile: Use
       });
 
     case "income":
-      return await ctx.runAction(internal.expenseActions.addIncome, {
+      return await ctx.runAction(internal.expenseActions.processIncomeWithAI, {
         userId: update.userId,
         chatId: update.chatId,
         text: update.data.text || "",
@@ -610,6 +640,31 @@ async function handleExpenseConfirmation(ctx: any, update: ProcessedUpdate, para
     });
 
     return { success: false, error: "confirmation_parse_error" };
+  }
+}
+
+/**
+ * Handle income confirmation
+ */
+async function handleIncomeConfirmation(ctx: any, update: ProcessedUpdate, param: string, userProfile: UserProfile) {
+  try {
+    const incomeData = JSON.parse(Buffer.from(param, 'base64').toString());
+    
+    return await ctx.runAction(internal.expenseActions.processConfirmedIncome, {
+      incomeData,
+      chatId: update.chatId,
+      language: userProfile.language,
+    });
+
+  } catch (error) {
+    await ctx.runAction(internal.telegramAPI.sendMessage, {
+      chatId: update.chatId,
+      text: userProfile.language === "ar"
+        ? "خطأ في معالجة تأكيد الدخل"
+        : "Error processing income confirmation",
+    });
+
+    return { success: false, error: "income_confirmation_parse_error" };
   }
 }
 

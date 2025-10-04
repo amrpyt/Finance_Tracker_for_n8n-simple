@@ -1,7 +1,7 @@
 # Source Tree Structure
 
-**Version:** 1.0  
-**Last Updated:** 2025-09-30
+**Version:** 2.0  
+**Last Updated:** 2025-10-04
 
 This document defines the complete directory structure for the Personal Finance Tracker Telegram Bot monorepo.
 
@@ -9,7 +9,7 @@ This document defines the complete directory structure for the Personal Finance 
 
 ## Complete Directory Tree
 
-```
+```text
 finance-tracker-telegram-bot/
 │
 ├── .github/                              # GitHub configuration
@@ -18,83 +18,32 @@ finance-tracker-telegram-bot/
 │       ├── deploy.yaml                   # Deploy to production
 │       └── lint.yaml                     # Code quality checks
 │
-├── bot/                                  # Telegram bot server
-│   ├── src/                              # Source code
-│   │   ├── index.ts                      # Main entry point (Express server)
-│   │   ├── bot.ts                        # Telegram bot initialization
-│   │   │
-│   │   ├── config/                       # Configuration
-│   │   │   ├── env.ts                    # Environment variable loading
-│   │   │   └── convex.ts                 # Convex client setup
-│   │   │
-│   │   ├── handlers/                     # Message and command handlers
-│   │   │   ├── index.ts                  # Handler registration
-│   │   │   ├── commands.ts               # /start, /help commands
-│   │   │   ├── messages.ts               # Natural language message handling
-│   │   │   ├── callbacks.ts              # Callback query handling
-│   │   │   └── confirmations.ts          # Confirmation flow handling
-│   │   │
-│   │   ├── services/                     # Business logic services
-│   │   │   ├── convex.ts                 # Convex function call wrappers
-│   │   │   ├── session.ts                # In-memory session management
-│   │   │   └── rateLimiter.ts            # Rate limiting logic
-│   │   │
-│   │   ├── utils/                        # Utility functions
-│   │   │   ├── telegram.ts               # Telegram formatting utilities
-│   │   │   ├── language.ts               # Arabic/English detection
-│   │   │   ├── logger.ts                 # Logging utilities
-│   │   │   ├── errorHandler.ts           # Error handling and translation
-│   │   │   └── formatters.ts             # Message formatting
-│   │   │
-│   │   └── types/                        # TypeScript type definitions
-│   │       ├── index.ts                  # Main type exports
-│   │       ├── session.ts                # Session types
-│   │       └── telegram.ts               # Telegram-specific types
-│   │
-│   ├── tests/                            # Unit and integration tests
-│   │   ├── handlers/
-│   │   │   ├── commands.test.ts
-│   │   │   └── messages.test.ts
-│   │   ├── services/
-│   │   │   ├── session.test.ts
-│   │   │   └── rateLimiter.test.ts
-│   │   └── utils/
-│   │       ├── language.test.ts
-│   │       └── formatters.test.ts
-│   │
-│   ├── .env.example                      # Environment variable template
-│   ├── .eslintrc.json                    # ESLint configuration
-│   ├── .prettierrc                       # Prettier configuration
-│   ├── jest.config.js                    # Jest test configuration
-│   ├── package.json                      # Bot dependencies
-│   ├── tsconfig.json                     # TypeScript configuration
-│   └── README.md                         # Bot server documentation
-│
-├── convex/                               # Convex backend
+├── convex/                               # Convex serverless backend (100% of application)
 │   ├── schema.ts                         # Database schema definition
 │   │
-│   ├── users.ts                          # User management functions
-│   ├── accounts.ts                       # Account CRUD operations
-│   ├── transactions.ts                   # Transaction management
-│   ├── loans.ts                          # Loan tracking functions
+│   ├── telegram.ts                       # Telegram webhook HTTP Action (entry point)
+│   ├── messageProcessor.ts               # Main message routing & AI integration
+│   ├── expenseActions.ts                 # Expense/income processing
+│   ├── balanceActions.ts                 # Balance checking & transaction history
+│   ├── chartGenerator.ts                 # Chart generation (QuickChart API)
+│   ├── telegramAPI.ts                    # Telegram Bot API client
+│   ├── rorkIntegration.ts                # RORK AI processing
+│   ├── userProfiles.ts                   # User management & preferences
+│   ├── users.ts                          # User CRUD operations
+│   ├── accounts.ts                       # Account management
+│   ├── transactions.ts                   # Transaction operations
+│   ├── messages.ts                       # Message history
 │   ├── ai.ts                             # AI integration actions
+│   ├── http.ts                           # HTTP action exports
 │   │
 │   ├── lib/                              # Shared backend utilities
-│   │   ├── rork.ts                       # Rork API client
 │   │   ├── validation.ts                 # Input validation utilities
 │   │   ├── calculations.ts               # Balance calculation logic
-│   │   ├── errors.ts                     # Error classes and helpers
-│   │   ├── auth.ts                       # Authentication helpers
-│   │   │
-│   │   └── repositories/                 # Data access layer
-│   │       ├── accountRepository.ts      # Account data access
-│   │       ├── transactionRepository.ts  # Transaction data access
-│   │       └── loanRepository.ts         # Loan data access
+│   │   └── errors.ts                     # Error classes and helpers
 │   │
 │   ├── prompts/                          # AI system prompts
 │   │   ├── system.ts                     # Main system prompt
-│   │   ├── functions.ts                  # Function calling definitions
-│   │   └── categories.ts                 # Category classification prompts
+│   │   └── functions.ts                  # Function calling definitions
 │   │
 │   ├── tests/                            # Convex function tests
 │   │   ├── users.test.ts
@@ -178,34 +127,21 @@ finance-tracker-telegram-bot/
 | Directory/File | Purpose |
 |----------------|---------|
 | `.github/` | GitHub-specific configuration (Actions, issue templates) |
-| `bot/` | Telegram bot server application |
-| `convex/` | Convex serverless backend |
+| `convex/` | **Complete serverless backend** - 100% of application logic |
 | `shared/` | Shared TypeScript types and utilities |
 | `docs/` | All project documentation |
 | `scripts/` | Build, deployment, and utility scripts |
-| `package.json` | Root package.json defining npm workspaces |
-| `config.api.json` | Rork API configuration and rate limits |
+| `package.json` | Root package.json (Convex-only dependencies) |
+| `config.api.json` | RORK API configuration and rate limits |
 
-### Bot Server (`bot/`)
-
-| Directory | Purpose | Key Files |
-|-----------|---------|-----------|
-| `src/` | All bot source code | `index.ts`, `bot.ts` |
-| `src/config/` | Configuration loading | `env.ts`, `convex.ts` |
-| `src/handlers/` | Telegram event handlers | `commands.ts`, `messages.ts` |
-| `src/services/` | Business logic services | `convex.ts`, `session.ts` |
-| `src/utils/` | Utility functions | `telegram.ts`, `logger.ts` |
-| `src/types/` | TypeScript type definitions | `session.ts`, `telegram.ts` |
-| `tests/` | Unit and integration tests | `*.test.ts` |
 
 ### Convex Backend (`convex/`)
 
 | Directory | Purpose | Key Files |
 |-----------|---------|-----------|
-| Root | Convex functions (queries, mutations, actions) | `users.ts`, `transactions.ts` |
-| `lib/` | Shared backend utilities | `rork.ts`, `validation.ts` |
-| `lib/repositories/` | Data access layer | `accountRepository.ts` |
-| `prompts/` | AI system prompts | `system.ts`, `functions.ts` |
+| Root | Convex functions (queries, mutations, actions, HTTP actions) | `telegram.ts`, `messageProcessor.ts`, `expenseActions.ts` |
+| `lib/` | Shared backend utilities | `validation.ts`, `calculations.ts`, `errors.ts` |
+| `prompts/` | AI system prompts for RORK | `system.ts`, `functions.ts` |
 | `tests/` | Convex function tests | `*.test.ts` |
 | `_generated/` | Convex auto-generated files (gitignored) | `api.d.ts`, `dataModel.d.ts` |
 
@@ -263,30 +199,11 @@ kebab-case for markdown:
 ### Absolute Imports (Preferred)
 
 ```typescript
-// Bot server - use path aliases
-import { convexClient } from "@/services/convex";
-import { logger } from "@/utils/logger";
-import { User } from "@shared/types/user";
-
 // Convex - use relative imports (Convex limitation)
 import { AppError } from "./lib/errors";
 import { validateAmount } from "./lib/validation";
 ```
 
-### Path Alias Configuration
-
-```json
-// bot/tsconfig.json
-{
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"],
-      "@shared/*": ["../shared/src/*"]
-    }
-  }
-}
-```
 
 ---
 
@@ -296,7 +213,7 @@ import { validateAmount } from "./lib/validation";
 
 | File | Purpose |
 |------|---------|
-| `bot/src/index.ts` | Bot server entry point (Express + webhook) |
+| `convex/telegram.ts` | Main entry point (Telegram webhook HTTP Action) |
 | `convex/schema.ts` | Database schema definition |
 
 ### Configuration Files
@@ -304,35 +221,29 @@ import { validateAmount } from "./lib/validation";
 | File | Purpose |
 |------|---------|
 | `config.api.json` | Rork API endpoints and rate limits |
-| `bot/.env` | Bot server environment variables |
-| `convex/.env.local` | Convex environment variables |
+| `.env` | Environment variables (loaded by Convex) |
 | `.env.example` | Environment variable template |
 
 ### Core Business Logic
 
 | File | Purpose |
 |------|---------|
-| `convex/users.ts` | User management (create, get) |
-| `convex/accounts.ts` | Account CRUD operations |
-| `convex/transactions.ts` | Transaction management |
-| `convex/loans.ts` | Loan tracking and payments |
-| `convex/ai.ts` | Rork API integration |
-
-### Bot Handlers
-
-| File | Purpose |
-|------|---------|
-| `bot/src/handlers/commands.ts` | /start, /help commands |
-| `bot/src/handlers/messages.ts` | Natural language processing |
-| `bot/src/handlers/confirmations.ts` | User confirmation flows |
+| `convex/telegram.ts` | Telegram webhook HTTP Action (entry point) |
+| `convex/messageProcessor.ts` | Main message routing and AI integration |
+| `convex/expenseActions.ts` | Expense and income processing |
+| `convex/balanceActions.ts` | Balance checking and transaction history |
+| `convex/accounts.ts` | Account management |
+| `convex/chartGenerator.ts` | Chart generation with QuickChart API |
+| `convex/rorkIntegration.ts` | RORK AI client and processing |
+| `convex/telegramAPI.ts` | Telegram Bot API client |
+| `convex/userProfiles.ts` | User management and preferences |
 
 ### Utilities
 
 | File | Purpose |
 |------|---------|
-| `bot/src/utils/logger.ts` | Structured logging |
-| `bot/src/utils/language.ts` | Arabic/English detection |
-| `convex/lib/rork.ts` | Rork API client |
+| `convex/lib/validation.ts` | Input validation utilities |
+| `convex/lib/calculations.ts` | Balance calculation logic |
 | `convex/lib/errors.ts` | Error handling utilities |
 
 ---
@@ -342,7 +253,6 @@ import { validateAmount } from "./lib/validation";
 ```gitignore
 # Dependencies
 node_modules/
-package-lock.json
 
 # Environment variables
 .env
@@ -392,27 +302,19 @@ temp/
   "name": "finance-tracker-telegram-bot",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "bot",
-    "convex",
-    "shared"
-  ],
   "scripts": {
-    "dev": "npm-run-all --parallel dev:*",
-    "dev:bot": "npm run dev --workspace=bot",
-    "dev:convex": "npm run dev --workspace=convex",
-    "test": "npm run test --workspaces",
-    "build": "npm run build --workspaces",
-    "lint": "eslint . --ext .ts,.tsx",
+    "dev": "npx convex dev",
+    "deploy": "npx convex deploy",
+    "test": "echo \"No tests specified\"",
+    "lint": "prettier --check \"**/*.{ts,tsx,json,md}\"",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.55.0",
     "prettier": "^3.1.0",
-    "npm-run-all": "^4.1.5",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "convex": "^1.27.3"
   }
 }
 ```
@@ -426,7 +328,6 @@ temp/
 | File Type | Max Lines | Rationale |
 |-----------|-----------|-----------|
 | Convex function file | 300 lines | Keep functions focused and testable |
-| Bot handler file | 400 lines | Handlers can be more complex |
 | Utility file | 200 lines | Utilities should be small and reusable |
 | Test file | 500 lines | Tests can be verbose |
 | Type definition file | 150 lines | Keep types organized and focused |
@@ -491,9 +392,6 @@ docs/
 
 ### When to Add New Directories
 
-**Add `bot/src/middleware/` when:**
-- Need more than 2 middleware functions
-- Example: auth middleware, logging middleware
 
 **Add `convex/migrations/` when:**
 - Need to run data migrations
@@ -509,4 +407,5 @@ docs/
 
 **Document Owner:** Architect  
 **Review Frequency:** Updated when directory structure changes  
-**Last Reviewed:** 2025-09-30
+**Last Reviewed:** 2025-10-04
+
