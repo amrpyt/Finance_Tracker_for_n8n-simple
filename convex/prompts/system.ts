@@ -120,6 +120,28 @@ function getUserContext(context: SystemPromptContext): string {
     });
   }
   
+  // Add conversation history for context continuity
+  if (context.conversationHistory && context.conversationHistory.length > 0) {
+    if (lang === "ar") {
+      contextStr += `\n**تاريخ المحادثة الحالية (مهم للسياق):**\n`;
+    } else {
+      contextStr += `\n**Current Conversation History (important for context):**\n`;
+    }
+    
+    // Show last few exchanges for context
+    const recentHistory = context.conversationHistory.slice(-6); // Last 6 messages (3 exchanges)
+    recentHistory.forEach((msg, idx) => {
+      const role = msg.role === "user" ? (lang === "ar" ? "المستخدم" : "User") : (lang === "ar" ? "المساعد" : "Assistant");
+      contextStr += `${role}: ${msg.content}\n`;
+    });
+    
+    if (lang === "ar") {
+      contextStr += `\n⚠️ مهم: استمر من آخر سياق في المحادثة. لا تبدأ محادثة جديدة!\n`;
+    } else {
+      contextStr += `\n⚠️ IMPORTANT: Continue from the last conversation context. Do not start a new conversation!\n`;
+    }
+  }
+  
   return contextStr;
 }
 

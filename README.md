@@ -1,63 +1,70 @@
 # Personal Finance Tracker Telegram Bot
 
-A bilingual (Arabic/English) Telegram bot for personal finance management, powered by Convex serverless backend and Rork Toolkit AI.
+A bilingual (Arabic/English) Telegram bot for personal finance management, powered entirely by **Convex serverless architecture** with integrated AI and chart generation.
 
 **🤖 Live Bot:** [@FinanceTracker_coderaai_bot](https://t.me/FinanceTracker_coderaai_bot)  
-**📊 Project Status:** [View Progress](./PROJECT_STATUS.md) | **Epic 1 Complete** ✅ (20% overall)  
-**⚡ Quick Start:** [5-Minute Setup Guide](./QUICK_START.md)
+**📊 Project Status:** **Epic 7 Complete** ✅ - Full Convex-Only Migration  
+**⚡ Architecture:** **Serverless-First** - No servers to manage!
 
 ## 🎯 Features
 
 - **Natural Language Processing**: Add expenses and income using conversational language
 - **Multi-Account Management**: Track multiple bank accounts, cash, and credit cards
-- **Smart Categorization**: AI-powered transaction categorization
-- **Loan Tracking**: Monitor loans and payment schedules
+- **Smart Categorization**: AI-powered transaction categorization using RORK
+- **Chart Generation**: Beautiful expense charts (pie, bar, line) with QuickChart API
 - **Bilingual Support**: Full Arabic and English language support
 - **Real-time Balance Updates**: Instant balance calculations and updates
+- **Serverless Architecture**: Fully serverless with Convex - no servers to manage!
 
 ## 🏗️ Architecture
 
-This project uses a **monorepo structure** with npm workspaces:
+**✨ Fully Serverless Convex-Only Architecture** - No servers, no infrastructure management!
 
-```
+```text
 finance-tracker-telegram-bot/
-├── bot/          - Telegram bot server (Node.js/Express)
-├── convex/       - Convex serverless backend
-├── shared/       - Shared TypeScript types and utilities
-├── docs/         - Project documentation
-└── scripts/      - Build and deployment scripts
+├── convex/       - Complete serverless backend
+│   ├── telegram.ts           - Webhook handler (HTTP Action)
+│   ├── messageProcessor.ts   - Main message routing
+│   ├── expenseActions.ts     - Expense/income logic
+│   ├── balanceActions.ts     - Balance checking
+│   ├── chartGenerator.ts     - Chart generation
+│   ├── telegramAPI.ts        - Bot API integration
+│   ├── rorkIntegration.ts    - AI processing
+│   └── userProfiles.ts       - User management
+└── docs/         - Project documentation
 ```
 
 ### Architecture Diagram
 
-```
+```text
 ┌─────────────┐
-│   Telegram  │
+│   Telegram  │ 
 │    Users    │
 └──────┬──────┘
-       │
+       │ Webhook
        ▼
 ┌─────────────────────────────┐
-│     Bot Server (Express)    │
-│  - Message Handlers         │
-│  - Session Management       │
-│  - Rate Limiting            │
+│   Convex HTTP Action        │
+│  - Fast webhook handling    │
+│  - <200ms acknowledgment    │
+│  - Request validation       │
 └──────────┬──────────────────┘
-           │
+           │ Direct Processing
            ▼
 ┌─────────────────────────────┐
-│   Convex Backend (Cloud)    │
-│  - Database (Real-time)     │
+│   Convex Actions            │
+│  - Message Processing       │
+│  - AI Intent Detection      │
 │  - Business Logic           │
-│  - AI Integration           │
+│  - Chart Generation         │
 └──────────┬──────────────────┘
            │
            ▼
 ┌─────────────────────────────┐
-│   Rork Toolkit API          │
-│  - NLP Processing           │
-│  - Intent Classification    │
-│  - Data Extraction          │
+│   External APIs             │
+│  - RORK AI (Free)           │
+│  - Telegram Bot API         │
+│  - QuickChart (Free)        │
 └─────────────────────────────┘
 ```
 
@@ -66,59 +73,60 @@ finance-tracker-telegram-bot/
 ### Prerequisites
 
 - **Node.js**: 18.x LTS or higher
-- **npm**: 9.x or higher
+- **npm**: 9.x or higher  
 - **Telegram Bot Token**: Get from [@BotFather](https://t.me/botfather)
-- **Rork API Key**: Get from Rork dashboard
 - **Convex Account**: Sign up at [convex.dev](https://convex.dev)
 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd finance-tracker-telegram-bot
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
-3. **Set up environment variables**
-   ```bash
-   # Copy environment templates
-   cp .env.example .env
-   cp bot/.env.example bot/.env
-   cp convex/.env.local.example convex/.env.local
-   
-   # Edit .env files with your credentials
-   ```
+3. **Initialize Convex**
 
-4. **Initialize Convex**
    ```bash
-   cd convex
    npx convex dev
    # Follow the prompts to create a new project
-   # Copy the CONVEX_URL to your .env files
+   # This will generate your CONVEX_URL automatically
    ```
 
-5. **Start the bot server**
+4. **Configure environment variables**
+
+   In the Convex dashboard, add these environment variables:
+   - `TELEGRAM_BOT_TOKEN` - Your bot token from @BotFather
+
+5. **Deploy to production**
+
    ```bash
-   cd ../bot
-   npm run dev
+   npm run deploy
+   ```
+
+6. **Set up Telegram webhook**
+
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+        -H "Content-Type: application/json" \
+        -d '{"url":"<YOUR_CONVEX_HTTP_ACTION_URL>/telegram/webhook"}'
    ```
 
 ### Development Workflow
 
 ```bash
-# Start all services in parallel
+# Start development server
 npm run dev
 
-# Run tests
-npm test
-
-# Lint code
-npm run lint
+# Deploy to production  
+npm run deploy
 
 # Format code
 npm run format
@@ -126,22 +134,18 @@ npm run format
 
 ## 📁 Project Structure
 
-### Bot Server (`/bot`)
-- `src/index.ts` - Express server entry point
-- `src/handlers/` - Telegram message and command handlers
-- `src/services/` - Business logic and Convex client
-- `src/utils/` - Utility functions and helpers
+### Convex Backend (`/convex/`)
 
-### Convex Backend (`/convex`)
+- `telegram.ts` - Webhook handler (HTTP Action)
+- `messageProcessor.ts` - Main message routing and AI integration
+- `expenseActions.ts` - Expense and income processing
+- `balanceActions.ts` - Balance checking and transaction history
+- `chartGenerator.ts` - Chart generation with QuickChart API
+- `telegramAPI.ts` - Telegram Bot API integration
+- `rorkIntegration.ts` - AI processing with RORK
+- `userProfiles.ts` - User management and preferences
 - `schema.ts` - Database schema definition
-- `users.ts`, `accounts.ts`, `transactions.ts`, `loans.ts` - CRUD operations
-- `ai.ts` - Rork API integration
-- `lib/` - Shared utilities and helpers
-
-### Shared Package (`/shared`)
-- `types/` - Shared TypeScript interfaces
-- `constants/` - Shared constants (categories, currencies)
-- `utils/` - Shared utility functions
+- `_generated/` - Convex generated files
 
 ## 🔧 Configuration
 

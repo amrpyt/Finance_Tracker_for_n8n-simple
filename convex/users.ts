@@ -122,3 +122,18 @@ export const getUserByTelegramId = query({
     return user;
   },
 });
+
+/**
+ * Get user by Convex user ID.
+ * 
+ * @param userId - Convex user ID
+ * @returns User profile or null if not found
+ */
+export const getUser = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
+  },
+});

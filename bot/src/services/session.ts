@@ -13,7 +13,24 @@ interface AccountCreationSession {
   };
 }
 
-type Session = AccountCreationSession;
+interface PendingTransaction {
+  type: "expense" | "income";
+  amount: number;
+  description: string;
+  category: string;
+  accountId: string;
+  accountName: string;
+  currency: string;
+  date: number;
+}
+
+interface TransactionConfirmationSession {
+  type: "transaction_confirmation";
+  pendingTransaction: PendingTransaction;
+  expiresAt: number;
+}
+
+type Session = AccountCreationSession | TransactionConfirmationSession;
 
 /**
  * In-memory session storage
@@ -89,7 +106,52 @@ class SessionManager {
       this.setSession(userId, session);
     }
   }
+
+  /**
+   * Set pending transaction for confirmation
+   * Expires after 5 minutes
+   */
+  setPendingTransaction(userId: string, transaction: PendingTransaction): void {
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    this.setSession(userId, {
+      type: "transaction_confirmation",
+      pendingTransaction: transaction,
+      expiresAt,
+    });
+  }
+
+  /**
+   * Get pending transaction if exists and not expired
+   */
+  getPendingTransaction(userId: string): PendingTransaction | null {
+    const session = this.getSession(userId);
+    
+    if (!session || session.type !== "transaction_confirmation") {
+      return null;
+    }
+
+    // Check if expired
+    if (Date.now() > session.expiresAt) {
+      this.clearSession(userId);
+      return null;
+    }
+
+    return session.pendingTransaction;
+  }
+
+  /**
+   * Clear pending transaction
+   */
+  clearPendingTransaction(userId: string): void {
+    const session = this.getSession(userId);
+    if (session && session.type === "transaction_confirmation") {
+      this.clearSession(userId);
+    }
+  }
 }
 
 // Export singleton instance
 export const sessionManager = new SessionManager();
+
+// Export types for use in other modules
+export type { PendingTransaction };

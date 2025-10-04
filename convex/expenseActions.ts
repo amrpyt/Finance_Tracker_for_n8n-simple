@@ -1,0 +1,379 @@
+"use node";
+
+import { action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { v } from "convex/values";
+
+/**
+ * Add Expense Action (internal - called from messageProcessor)
+ */
+export const addExpense = internalAction({
+  args: {
+    userId: v.number(),
+    chatId: v.number(),
+    text: v.string(),
+    language: v.string(),
+  },
+  handler: async (ctx, { userId, chatId, text, language }) => {
+    console.log(`[expenseActions] Processing expense for user ${userId}`);
+
+    try {
+      // Extract amount and description from text
+      const parsed = parseExpenseText(text);
+      
+      if (!parsed.amount || parsed.amount <= 0) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar" 
+            ? "لم أستطع العثور على المبلغ. مثال: 'صرفت 50 على القهوة'"
+            : "I couldn't find the amount. Example: 'I spent 50 on coffee'",
+        });
+        return { success: false, reason: "amount_not_found" };
+      }
+
+      if (!parsed.description) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "على ماذا صرفت المال؟"
+            : "What did you spend money on?",
+        });
+        return { success: false, reason: "description_missing" };
+      }
+
+      // Get user's default account
+      const account = await getUserDefaultAccount(ctx, userId);
+      if (!account) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "يجب إنشاء حساب أولاً. استخدم /start"
+            : "You need to create an account first. Use /start",
+        });
+        return { success: false, reason: "no_account" };
+      }
+
+      // Create expense
+      const expense = await ctx.runMutation(internal.transactions.createTransaction, {
+        userId: userId.toString(),
+        accountId: account._id,
+        type: "expense",
+        amount: parsed.amount,
+        description: parsed.description,
+        category: parsed.category || "Other",
+        date: new Date().toISOString(),
+      });
+
+      // Send success message
+      const successText = language === "ar"
+        ? `✅ تم تسجيل المصروف!\n💸 ${parsed.amount} جنيه - ${parsed.description}\n💰 الرصيد الجديد: ${expense.newBalance} جنيه`
+        : `✅ Expense logged!\n💸 ${parsed.amount} EGP - ${parsed.description}\n💰 New balance: ${expense.newBalance} EGP`;
+
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: successText,
+      });
+
+      return {
+        success: true,
+        transactionId: expense._id,
+        amount: parsed.amount,
+        newBalance: expense.newBalance,
+      };
+
+    } catch (error: any) {
+      console.error(`[expenseActions] Failed to add expense:`, error);
+      
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: language === "ar"
+          ? "عذراً، فشل في تسجيل المصروف"
+          : "Sorry, failed to log expense",
+      });
+
+      return { success: false, error: error.message };
+    }
+  },
+});
+
+/**
+ * Add Income Action (internal - called from messageProcessor)
+ */
+export const addIncome = internalAction({
+  args: {
+    userId: v.number(),
+    chatId: v.number(),
+    text: v.string(),
+    language: v.string(),
+  },
+  handler: async (ctx, { userId, chatId, text, language }) => {
+    console.log(`[expenseActions] Processing income for user ${userId}`);
+
+    try {
+      // Extract amount and description from text
+      const parsed = parseIncomeText(text);
+      
+      if (!parsed.amount || parsed.amount <= 0) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "لم أستطع العثور على المبلغ. مثال: 'استلمت راتب 3000'"
+            : "I couldn't find the amount. Example: 'I received salary 3000'",
+        });
+        return { success: false, reason: "amount_not_found" };
+      }
+
+      // Get user's default account
+      const account = await getUserDefaultAccount(ctx, userId);
+      if (!account) {
+        await ctx.runAction(internal.telegramAPI.sendMessage, {
+          chatId,
+          text: language === "ar"
+            ? "يجب إنشاء حساب أولاً. استخدم /start"
+            : "You need to create an account first. Use /start",
+        });
+        return { success: false, reason: "no_account" };
+      }
+
+      // Create income transaction
+      const income = await ctx.runMutation(internal.transactions.createTransaction, {
+        userId: userId.toString(),
+        accountId: account._id,
+        type: "income",
+        amount: parsed.amount,
+        description: parsed.description || "Income",
+        category: parsed.category || "Income",
+        date: new Date().toISOString(),
+      });
+
+      // Send success message
+      const successText = language === "ar"
+        ? `✅ تم تسجيل الدخل!\n📈 ${parsed.amount} جنيه - ${parsed.description}\n💰 الرصيد الجديد: ${income.newBalance} جنيه`
+        : `✅ Income logged!\n📈 ${parsed.amount} EGP - ${parsed.description}\n💰 New balance: ${income.newBalance} EGP`;
+
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: successText,
+      });
+
+      return {
+        success: true,
+        transactionId: income._id,
+        amount: parsed.amount,
+        newBalance: income.newBalance,
+      };
+
+    } catch (error: any) {
+      console.error(`[expenseActions] Failed to add income:`, error);
+      
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: language === "ar"
+          ? "عذراً، فشل في تسجيل الدخل"
+          : "Sorry, failed to log income",
+      });
+
+      return { success: false, error: error.message };
+    }
+  },
+});
+
+/**
+ * Process confirmed expense (internal - called from messageProcessor)
+ */
+export const processConfirmedExpense = internalAction({
+  args: {
+    expenseData: v.any(),
+    chatId: v.number(),
+    language: v.string(),
+  },
+  handler: async (ctx, { expenseData, chatId, language }) => {
+    try {
+      const expense = await ctx.runMutation(internal.transactions.createTransaction, expenseData);
+
+      const successText = language === "ar"
+        ? `✅ تم تسجيل المصروف بنجاح!\n💸 ${expenseData.amount} جنيه\n💰 الرصيد الجديد: ${expense.newBalance} جنيه`
+        : `✅ Expense confirmed!\n💸 ${expenseData.amount} EGP\n💰 New balance: ${expense.newBalance} EGP`;
+
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: successText,
+      });
+
+      return { success: true, newBalance: expense.newBalance };
+
+    } catch (error: any) {
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId,
+        text: language === "ar" ? "فشل في تسجيل المصروف" : "Failed to log expense",
+      });
+
+      return { success: false, error: error.message };
+    }
+  },
+});
+
+/**
+ * Parse expense text to extract amount, description, and category
+ */
+function parseExpenseText(text: string): {
+  amount?: number;
+  description?: string;
+  category?: string;
+} {
+  // Common patterns for expenses
+  const patterns = [
+    // "spent 50 on coffee" or "I spent 50 on coffee"
+    /(?:spent|paid)\s+(\d+(?:\.\d{2})?)\s+(?:on|for)\s+(.+)/i,
+    // "50 coffee" or "50 for coffee"
+    /(\d+(?:\.\d{2})?)\s+(?:for\s+)?(.+)/i,
+    // Arabic patterns: "صرفت 50 على القهوة"
+    /(?:صرفت|دفعت)\s+(\d+(?:\.\d{2})?)\s+(?:على|في)\s+(.+)/i,
+    // Simple: "coffee 50"
+    /(.+?)\s+(\d+(?:\.\d{2})?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      let amount, description;
+      
+      // Check if first group is number or second
+      if (!isNaN(Number(match[1]))) {
+        amount = Number(match[1]);
+        description = match[2]?.trim();
+      } else {
+        amount = Number(match[2]);
+        description = match[1]?.trim();
+      }
+
+      if (amount && description) {
+        return {
+          amount,
+          description,
+          category: categorizeExpense(description),
+        };
+      }
+    }
+  }
+
+  // Fallback: extract any number
+  const numberMatch = text.match(/(\d+(?:\.\d{2})?)/);
+  if (numberMatch) {
+    return {
+      amount: Number(numberMatch[1]),
+      description: text.replace(numberMatch[0], '').trim() || "Expense",
+      category: "Other",
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Parse income text to extract amount, description, and category
+ */
+function parseIncomeText(text: string): {
+  amount?: number;
+  description?: string;
+  category?: string;
+} {
+  // Common patterns for income
+  const patterns = [
+    // "received 3000 salary" or "earned 500 from freelance"
+    /(?:received|earned|got)\s+(\d+(?:\.\d{2})?)\s+(?:from\s+)?(.+)/i,
+    // "salary 3000"
+    /(\d+(?:\.\d{2})?)\s+(.+)/i,
+    // Arabic: "استلمت راتب 3000"
+    /(?:استلمت|كسبت)\s+(.+?)\s+(\d+(?:\.\d{2})?)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      let amount, description;
+      
+      if (!isNaN(Number(match[1]))) {
+        amount = Number(match[1]);
+        description = match[2]?.trim();
+      } else {
+        amount = Number(match[2]);
+        description = match[1]?.trim();
+      }
+
+      if (amount && description) {
+        return {
+          amount,
+          description,
+          category: "Income",
+        };
+      }
+    }
+  }
+
+  // Fallback
+  const numberMatch = text.match(/(\d+(?:\.\d{2})?)/);
+  if (numberMatch) {
+    return {
+      amount: Number(numberMatch[1]),
+      description: "Income",
+      category: "Income",
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Categorize expense based on description
+ */
+function categorizeExpense(description: string): string {
+  const lower = description.toLowerCase();
+  
+  // Food & Dining
+  if (/\b(food|coffee|restaurant|lunch|dinner|breakfast|meal|eat|drink|cafe|قهوة|طعام|غداء|عشاء|مطعم)\b/.test(lower)) {
+    return "Food";
+  }
+  
+  // Transportation
+  if (/\b(taxi|uber|bus|metro|gas|fuel|transport|car|مواصلات|تاكس|بنزين|سيارة)\b/.test(lower)) {
+    return "Transportation";
+  }
+  
+  // Shopping
+  if (/\b(shop|buy|purchase|store|mall|clothes|shopping|تسوق|شراء|ملابس|محل)\b/.test(lower)) {
+    return "Shopping";
+  }
+  
+  // Bills & Utilities
+  if (/\b(bill|electric|water|internet|phone|utility|فاتورة|كهرباء|مياه|انترنت|تلفون)\b/.test(lower)) {
+    return "Bills";
+  }
+  
+  // Entertainment
+  if (/\b(movie|cinema|game|entertainment|fun|ترفيه|سينما|لعبة|فيلم)\b/.test(lower)) {
+    return "Entertainment";
+  }
+  
+  // Healthcare
+  if (/\b(doctor|medicine|hospital|health|pharmacy|طبيب|دواء|مستشفى|صحة|صيدلية)\b/.test(lower)) {
+    return "Healthcare";
+  }
+  
+  return "Other";
+}
+
+/**
+ * Get user's default account
+ */
+async function getUserDefaultAccount(ctx: any, userId: number): Promise<any> {
+  try {
+    const account = await ctx.runQuery(internal.accounts.getUserDefaultAccount, {
+      userId: userId.toString(),
+    });
+    return account;
+  } catch (error) {
+    console.warn(`[expenseActions] Failed to get user account:`, error);
+    return null;
+  }
+}

@@ -32,17 +32,9 @@ export function createBot(): TelegramBot {
         code: (error as any).code,
       });
 
-      // Attempt to recover by checking backend health
-      logger.info("🔄 Attempting error recovery - checking backend health");
-      const healthCheck = await performHealthCheckWithRetry(2, 500);
-      
-      if (!healthCheck.success) {
-        logger.error("❌ Backend health check failed during recovery", {
-          error: healthCheck.error,
-        });
-      } else {
-        logger.info("✅ Backend health check passed - continuing operation");
-      }
+      // Skip health check - it causes server errors with new deployment
+      // The bot will continue polling automatically
+      logger.info("ℹ️  Polling error logged - bot will retry automatically");
     });
 
     // Handle general errors

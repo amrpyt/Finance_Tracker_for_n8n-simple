@@ -612,6 +612,285 @@ async function handleAccountCreationFlow(
 }
 
 /**
+ * Handle AI-powered intent detection (expenses, income, etc.)
+ */
+async function handleAIIntent(
+  bot: TelegramBot,
+  msg: TelegramBot.Message,
+  userId: string
+): Promise<void> {
+  try {
+    // Get user's Convex ID and language preference
+    const userResult = await convexClient.query(api.users.getUserByTelegramId, {
+      telegramUserId: userId,
+    });
+
+    if (!userResult) {
+      const language = detectUserLanguage(msg.text, msg.from?.language_code);
+      const errorMsg =
+        language === "ar"
+          ? "عذراً، لم أتمكن من العثور على حسابك. يرجى استخدام /start للبدء."
+          : "Sorry, I couldn't find your account. Please use /start to begin.";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    // Use stored language preference from user profile
+    const language = userResult.languagePreference || "en";
+
+    // Call AI to process the message
+    logger.info("Processing message with AI", { userId, message: msg.text?.substring(0, 50) });
+
+    const aiResponse = await convexClient.action(api.ai.processUserMessage, {
+      userId: userResult._id,
+      message: msg.text || "",
+    });
+
+    logger.info("AI response received", {
+      userId,
+      intent: aiResponse.intent,
+      confidence: aiResponse.confidence,
+      nextAction: aiResponse.nextAction,
+    });
+
+    // Handle different intents
+    if (aiResponse.intent === "log_expense") {
+      await handleExpenseIntent(bot, msg, userId, userResult._id, aiResponse, language);
+    } else if (aiResponse.intent === "log_income") {
+      await handleIncomeIntent(bot, msg, userId, userResult._id, aiResponse, language);
+    } else if (aiResponse.intent === "ask_clarification") {
+      // Send clarification question to user (bilingual)
+      const question = aiResponse.entities?.question || 
+        (language === "ar" 
+          ? "هل يمكنك التوضيح من فضلك؟" 
+          : "Could you please clarify?");
+      await bot.sendMessage(msg.chat.id, question);
+    } else {
+      // Unknown intent or low confidence - ignore silently
+      logger.debug("No actionable intent detected", {
+        userId,
+        intent: aiResponse.intent,
+        confidence: aiResponse.confidence,
+      });
+    }
+  } catch (error) {
+    logger.error("Error in AI intent handling", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      userId,
+    });
+
+    // Don't send error to user for non-actionable messages
+    // They might just be chatting casually
+  }
+}
+
+/**
+ * Handle expense logging intent
+ */
+async function handleExpenseIntent(
+  bot: TelegramBot,
+  msg: TelegramBot.Message,
+  userId: string,
+  convexUserId: string,
+  aiResponse: any,
+  language: string
+): Promise<void> {
+  try {
+    const entities = aiResponse.entities || {};
+
+    // Validate required fields
+    if (!entities.amount || !entities.description) {
+      const errorMsg =
+        language === "ar"
+          ? "عذراً، لم أتمكن من فهم المبلغ أو الوصف. يرجى المحاولة مرة أخرى."
+          : "Sorry, I couldn't understand the amount or description. Please try again.";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    // Get user's default account
+    const accounts = await convexClient.query(api.accounts.getUserAccounts, {
+      userId: convexUserId as any, // Type assertion for Convex ID
+    });
+
+    if (!accounts || accounts.length === 0) {
+      const errorMsg =
+        language === "ar"
+          ? "يرجى إنشاء حساب أولاً باستخدام 'إنشاء حساب'"
+          : "Please create an account first using 'create account'";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    const defaultAccount = accounts.find((acc) => acc.isDefault) || accounts[0];
+
+    // Store pending transaction in session
+    const pendingTransaction = {
+      type: "expense" as const,
+      amount: entities.amount,
+      description: entities.description,
+      category: entities.category || "Other",
+      accountId: defaultAccount._id,
+      accountName: defaultAccount.name,
+      currency: defaultAccount.currency || "EGP",
+      date: Date.now(),
+    };
+
+    sessionManager.setPendingTransaction(userId, pendingTransaction);
+
+    // Format confirmation message
+    const confirmationMsg =
+      language === "ar"
+        ? `💸 *مصروف*\n\n` +
+          `المبلغ: ${entities.amount} ${defaultAccount.currency || "EGP"}\n` +
+          `الوصف: ${entities.description}\n` +
+          `الفئة: ${entities.category || "أخرى"}\n` +
+          `الحساب: ${defaultAccount.name}\n\n` +
+          `هل تريد تسجيل هذا المصروف؟`
+        : `💸 *Expense*\n\n` +
+          `Amount: ${entities.amount} ${defaultAccount.currency || "EGP"}\n` +
+          `Description: ${entities.description}\n` +
+          `Category: ${entities.category || "Other"}\n` +
+          `Account: ${defaultAccount.name}\n\n` +
+          `Would you like to log this expense?`;
+
+    // Send confirmation with inline keyboard
+    await bot.sendMessage(msg.chat.id, confirmationMsg, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Confirm", callback_data: `confirm_expense:${userId}` },
+            { text: "❌ Cancel", callback_data: `cancel_expense:${userId}` },
+          ],
+        ],
+      },
+    });
+
+    logger.info("Expense confirmation sent", {
+      userId,
+      amount: entities.amount,
+      description: entities.description,
+    });
+  } catch (error) {
+    logger.error("Error handling expense intent", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      userId,
+    });
+
+    const errorMsg =
+      language === "ar"
+        ? "عذراً، حدث خطأ أثناء معالجة المصروف. يرجى المحاولة مرة أخرى."
+        : "Sorry, there was an error processing the expense. Please try again.";
+
+    await bot.sendMessage(msg.chat.id, errorMsg);
+  }
+}
+
+/**
+ * Handle income logging intent
+ */
+async function handleIncomeIntent(
+  bot: TelegramBot,
+  msg: TelegramBot.Message,
+  userId: string,
+  convexUserId: string,
+  aiResponse: any,
+  language: string
+): Promise<void> {
+  try {
+    const entities = aiResponse.entities || {};
+
+    // Validate required fields
+    if (!entities.amount || !entities.description) {
+      const errorMsg =
+        language === "ar"
+          ? "عذراً، لم أتمكن من فهم المبلغ أو الوصف. يرجى المحاولة مرة أخرى."
+          : "Sorry, I couldn't understand the amount or description. Please try again.";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    // Get user's default account
+    const accounts = await convexClient.query(api.accounts.getUserAccounts, {
+      userId: convexUserId as any, // Type assertion for Convex ID
+    });
+
+    if (!accounts || accounts.length === 0) {
+      const errorMsg =
+        language === "ar"
+          ? "يرجى إنشاء حساب أولاً باستخدام 'إنشاء حساب'"
+          : "Please create an account first using 'create account'";
+      await bot.sendMessage(msg.chat.id, errorMsg);
+      return;
+    }
+
+    const defaultAccount = accounts.find((acc) => acc.isDefault) || accounts[0];
+
+    // Store pending transaction in session
+    const pendingTransaction = {
+      type: "income" as const,
+      amount: entities.amount,
+      description: entities.description,
+      category: entities.category || "Other",
+      accountId: defaultAccount._id,
+      accountName: defaultAccount.name,
+      currency: defaultAccount.currency || "EGP",
+      date: Date.now(),
+    };
+
+    sessionManager.setPendingTransaction(userId, pendingTransaction);
+
+    // Format confirmation message
+    const confirmationMsg =
+      language === "ar"
+        ? `💰 *دخل*\n\n` +
+          `المبلغ: ${entities.amount} ${defaultAccount.currency || "EGP"}\n` +
+          `الوصف: ${entities.description}\n` +
+          `الفئة: ${entities.category || "أخرى"}\n` +
+          `الحساب: ${defaultAccount.name}\n\n` +
+          `هل تريد تسجيل هذا الدخل؟`
+        : `💰 *Income*\n\n` +
+          `Amount: ${entities.amount} ${defaultAccount.currency || "EGP"}\n` +
+          `Description: ${entities.description}\n` +
+          `Category: ${entities.category || "Other"}\n` +
+          `Account: ${defaultAccount.name}\n\n` +
+          `Would you like to log this income?`;
+
+    // Send confirmation with inline keyboard
+    await bot.sendMessage(msg.chat.id, confirmationMsg, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Confirm", callback_data: `confirm_income:${userId}` },
+            { text: "❌ Cancel", callback_data: `cancel_income:${userId}` },
+          ],
+        ],
+      },
+    });
+
+    logger.info("Income confirmation sent", {
+      userId,
+      amount: entities.amount,
+      description: entities.description,
+    });
+  } catch (error) {
+    logger.error("Error handling income intent", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      userId,
+    });
+
+    const errorMsg =
+      language === "ar"
+        ? "عذراً، حدث خطأ أثناء معالجة الدخل. يرجى المحاولة مرة أخرى."
+        : "Sorry, there was an error processing the income. Please try again.";
+
+    await bot.sendMessage(msg.chat.id, errorMsg);
+  }
+}
+
+/**
  * Main message handler
  * Routes messages to appropriate handlers based on intent and session state
  */
@@ -659,11 +938,8 @@ export async function handleMessage(
       return;
     }
 
-    // No intent detected - could add more handlers here in future
-    logger.debug("No intent detected", {
-      userId,
-      message: msg.text.substring(0, 50),
-    });
+    // Try AI-powered expense/income detection for all other messages
+    await handleAIIntent(bot, msg, userId);
   } catch (error) {
     logger.error("Error handling message", {
       error: error instanceof Error ? error.message : "Unknown error",

@@ -12,3 +12,8 @@ export {
   handleMessage,
   registerMessageHandlers
 } from "./messages";
+
+export {
+  handleCallbackQuery,
+  registerCallbackHandlers
+} from "./callbacks";

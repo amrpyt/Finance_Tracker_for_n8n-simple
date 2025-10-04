@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Rork Toolkit API client with retry logic and error handling
  * Handles natural language understanding for the finance bot
@@ -84,17 +86,10 @@ function getRorkConfig(): RorkConfig {
 }
 
 /**
- * Get API key from environment variable
+ * Get API key from environment variable (optional - Rork endpoint works without auth)
  */
-function getApiKey(): string {
-  const apiKey = process.env.RORK_API_KEY;
-  if (!apiKey) {
-    throw new AppError("MISSING_API_KEY", {
-      en: "Rork API key is not configured. Please contact support.",
-      ar: "مفتاح Rork API غير مكوّن. يرجى الاتصال بالدعم.",
-    });
-  }
-  return apiKey;
+function getApiKey(): string | null {
+  return process.env.RORK_API_KEY || null;
 }
 
 /**
@@ -127,22 +122,46 @@ export async function callRorkLLM(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
 
-      // Make API request
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          message: request.message,
-          system_prompt: request.systemPrompt,
-          functions: request.functions,
+      // Build headers (Authorization is optional)
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+
+        // Make API request with correct format (messages array) and proper function calling
+        const requestBody = {
+          messages: [
+            {
+              role: "system",
+              content: request.systemPrompt,
+            },
+            {
+              role: "user",
+              content: request.message,
+            }
+          ],
           temperature: request.temperature ?? 0.7,
           max_tokens: request.maxTokens ?? 1000,
-        }),
-        signal: controller.signal,
-      });
+        };
+
+        // Add function calling if functions are provided
+        if (request.functions && request.functions.length > 0) {
+          console.log("[Rork] Sending with function calling enabled");
+          (requestBody as any).functions = request.functions;
+          (requestBody as any).function_call = "auto"; // Let AI decide when to call functions
+        }
+
+        console.log("[Rork] Request body:", JSON.stringify(requestBody, null, 2).substring(0, 1000));
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
 
       clearTimeout(timeoutId);
 
@@ -192,23 +211,35 @@ export async function callRorkLLM(
 
       // Parse successful response
       const data = await response.json();
-      
-      // Validate response structure
-      if (!data || typeof data.content !== "string") {
-        throw new AppError("INVALID_API_RESPONSE", {
-          en: "Received invalid response from AI service.",
-          ar: "تم استلام استجابة غير صالحة من خدمة الذكاء الاصطناعي.",
-        });
-      }
+            // Log the response for debugging
+        console.log("[Rork] API Response:", JSON.stringify(data).substring(0, 500));
+        
+        // Check for function call in response
+        if (data.function_call) {
+          console.log("[Rork] Function call detected:", JSON.stringify(data.function_call));
+        } else {
+          console.log("[Rork] No function call in response, using text mode");
+        }
 
-      return {
-        content: data.content,
-        functionCall: data.function_call ? {
-          name: data.function_call.name,
-          arguments: data.function_call.arguments,
-        } : undefined,
-        usage: data.usage,
-      };
+        // Handle successful response
+        if (!data || typeof data !== "object") {
+          throw new AppError("INVALID_RESPONSE", {
+            en: "Invalid response from AI service",
+            ar: "استجابة غير صالحة من خدمة الذكاء الاصطناعي",
+          });
+        }
+
+        // Extract content from various possible response formats
+        const content = data.completion || data.content || data.message || data.response || "";
+
+        return {
+          content: content,
+          functionCall: data.function_call ? {
+            name: data.function_call.name,
+            arguments: data.function_call.arguments,
+          } : undefined,
+          usage: data.usage,
+        };
 
     } catch (error: any) {
       lastError = error;
@@ -300,10 +331,28 @@ export function parseAIResponse(response: RorkResponse): ParsedAIResponse {
         nextAction: determineNextAction(parsed.confidence ?? 0.5, parsed.clarification_needed ?? true),
       };
     } catch {
-      // Content is plain text, not JSON
+      // Content is plain text - try to extract transaction info
+      const extracted = extractTransactionFromText(response.content);
+      
+      if (extracted) {
+        return {
+          intent: extracted.type === "expense" ? "log_expense" : "log_income",
+          entities: {
+            amount: extracted.amount,
+            description: extracted.description,
+            category: extracted.category,
+            confidence: 0.8,
+          },
+          confidence: 0.8,
+          clarificationNeeded: false,
+          nextAction: "confirm",
+        };
+      }
+      
+      // No transaction info found - ask for clarification
       return {
         intent: "ask_clarification",
-        entities: { message: response.content },
+        entities: { question: response.content },
         confidence: 0.3,
         clarificationNeeded: true,
         nextAction: "clarify",
@@ -316,6 +365,98 @@ export function parseAIResponse(response: RorkResponse): ParsedAIResponse {
       ar: "فشل في فهم استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.",
     });
   }
+}
+
+/**
+ * Extract transaction details from AI text response
+ * The AI already extracted the info - we just need to parse its structured output
+ */
+function extractTransactionFromText(text: string): {
+  type: "expense" | "income";
+  amount: number;
+  description: string;
+  category: string;
+} | null {
+  console.log("[Rork] Extracting from text:", text.substring(0, 200));
+  
+  // Try multiple patterns for amount extraction
+  let amountMatch = text.match(/\*\*\$?(\d+(?:\.\d{1,2})?)\s*(?:EGP|USD|pounds?|جنيه)?\*\*/i);
+  if (!amountMatch) {
+    // Try without asterisks: "50 EGP"
+    amountMatch = text.match(/(\d+(?:\.\d{1,2})?)\s*(?:EGP|USD|pounds?|جنيه)/i);
+  }
+  if (!amountMatch) {
+    console.log("[Rork] No amount found in text");
+    return null;
+  }
+  
+  const amount = parseFloat(amountMatch[1]);
+  console.log("[Rork] Extracted amount:", amount);
+  
+  // Detect type from AI's words (multiple languages)
+  const isExpense = /spent|paid|expense|bought|purchase|اشتريت|دفعت|صرفت|💸/i.test(text);
+  const isIncome = /earned|received|income|salary|💰/i.test(text);
+  const type = isIncome ? "income" : "expense";
+  console.log("[Rork] Detected type:", type);
+  
+  // Extract description - look for common patterns
+  let description = "Transaction";
+  
+  // Pattern 1: "on **coffee**" or "for **coffee**"
+  const descMatch1 = text.match(/(?:on|for)\s+\*\*([^*]+)\*\*/i);
+  if (descMatch1) {
+    description = descMatch1[1].trim();
+  } else {
+    // Pattern 2: Find item after spent/bought
+    const descMatch2 = text.match(/(?:spent|bought|اشتريت).*?(?:on|for|)\s*\*\*([^*]+)\*\*/i);
+    if (descMatch2) {
+      description = descMatch2[1].trim();
+    } else {
+      // Pattern 3: Just get any **word** that looks like an item
+      const allMatches = text.match(/\*\*([^*\d][^*]*)\*\*/g);
+      if (allMatches) {
+        // Find the one that's not a number or currency
+        for (const match of allMatches) {
+          const content = match.replace(/\*\*/g, '').trim();
+          if (!/^\d|EGP|USD|pounds|جنيه/i.test(content)) {
+            description = content;
+            break;
+          }
+        }
+      }
+    }
+  }
+  console.log("[Rork] Extracted description:", description);
+  
+  // Extract category from AI text
+  let category = "Other";
+  
+  // Look for category indicators
+  const categoryPatterns = {
+    "Food": /food|coffee|restaurant|cafe|قهو|طعام|أكل|🍔|☕/i,
+    "Transportation": /transport|uber|taxi|bus|مواصلات|🚗|🚌/i,
+    "Shopping": /shopping|store|mall|تسوق|🛍️/i,
+    "Bills": /bills?|electricity|water|فواتير|💡/i,
+    "Entertainment": /entertainment|movie|game|ترفيه|🎬|🎮/i,
+    "Healthcare": /health|doctor|medicine|صحة|طبيب|💊/i,
+    "Education": /education|school|course|تعليم|📚/i,
+  };
+  
+  for (const [cat, pattern] of Object.entries(categoryPatterns)) {
+    if (pattern.test(text)) {
+      category = cat;
+      break;
+    }
+  }
+  
+  console.log("[Rork] Extracted category:", category);
+  
+  return {
+    type,
+    amount,
+    description,
+    category,
+  };
 }
 
 /**

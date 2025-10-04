@@ -3,7 +3,7 @@
  * Handles CRUD operations for user accounts
  */
 
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { validateAccountName, validateBalance, sanitizeAccountName } from "./lib/validation";
 import { throwInternalError, AppError } from "./lib/errors";
@@ -81,13 +81,48 @@ export const createAccount = mutation({
  * @param userId - ID of the user
  * @returns Array of user's accounts
  */
-export const getUserAccounts = query({
+export const getUserAccounts = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("accounts")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
+  },
+});
+
+/**
+ * Gets user's default account (internal - called from actions)
+ * 
+ * @param userId - ID of the user (as string from Telegram)
+ * @returns Default account or first account if no default set
+ */
+export const getUserDefaultAccount = internalQuery({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    // Find user by Telegram ID
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_telegram_id", (q) => q.eq("telegramUserId", args.userId))
+      .first();
+    
+    if (!user) {
+      return null;
+    }
+
+    // Get all user accounts
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    
+    if (accounts.length === 0) {
+      return null;
+    }
+
+    // Return default account or first account
+    const defaultAccount = accounts.find(acc => acc.isDefault);
+    return defaultAccount || accounts[0];
   },
 });
 

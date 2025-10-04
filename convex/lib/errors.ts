@@ -98,3 +98,49 @@ export function throwMissingAPIKey() {
     ar: "خدمة الذكاء الاصطناعي غير مكوّنة. يرجى الاتصال بالدعم.",
   });
 }
+
+/**
+ * Transaction-specific error factory functions
+ */
+
+export function throwInvalidAmount() {
+  throw new AppError("INVALID_AMOUNT", {
+    en: "Amount must be a positive number",
+    ar: "يجب أن يكون المبلغ رقماً موجباً",
+  });
+}
+
+export function throwInvalidDescription() {
+  throw new AppError("INVALID_DESCRIPTION", {
+    en: "Description must be between 1 and 200 characters",
+    ar: "يجب أن يكون الوصف بين 1 و 200 حرفاً",
+  });
+}
+
+export function throwInvalidCategory() {
+  throw new AppError("INVALID_CATEGORY", {
+    en: "Invalid transaction category",
+    ar: "فئة المعاملة غير صالحة",
+  });
+}
+
+export function throwAccountNotFound() {
+  throw new AppError("ACCOUNT_NOT_FOUND", {
+    en: "Account not found",
+    ar: "الحساب غير موجود",
+  });
+}
+
+export function throwInsufficientBalance() {
+  throw new AppError("INSUFFICIENT_BALANCE", {
+    en: "Insufficient account balance",
+    ar: "رصيد الحساب غير كافٍ",
+  });
+}
+
+export function throwTransactionNotFound() {
+  throw new AppError("TRANSACTION_NOT_FOUND", {
+    en: "Transaction not found",
+    ar: "المعاملة غير موجودة",
+  });
+}

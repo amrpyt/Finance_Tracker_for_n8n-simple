@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * AI integration actions for natural language understanding
  * Main entry point for processing user messages with Rork Toolkit API
@@ -12,15 +14,6 @@ import { AppError } from "./lib/errors";
 import { api } from "./_generated/api";
 
 /**
- * Conversation history message
- */
-const conversationMessageValidator = v.object({
-  role: v.union(v.literal("user"), v.literal("assistant")),
-  content: v.string(),
-  timestamp: v.number(),
-});
-
-/**
  * Process user message with AI to extract intent and entities
  * 
  * This is the main entry point for AI-powered natural language understanding.
@@ -28,57 +21,81 @@ const conversationMessageValidator = v.object({
  * 
  * @param userId - The user's Convex ID
  * @param message - The user's natural language message
- * @param conversationHistory - Optional: Last 3-5 messages for context
- * @returns Parsed AI response with intent, entities, and next action
  */
 export const processUserMessage = action({
   args: {
     userId: v.id("users"),
     message: v.string(),
-    conversationHistory: v.optional(v.array(conversationMessageValidator)),
   },
-  handler: async (ctx, args): Promise<ParsedAIResponse> => {
+  handler: async (ctx, args) => {
     const startTime = Date.now();
     
     try {
-      // Step 1: Fetch user data for context
       console.log(`[AI] Processing message for user ${args.userId}`);
-      
-      const user = await ctx.runQuery(api.users.getUser, {
+
+      // Step 1: Store user message in conversation history
+      await ctx.runMutation(api.messages.addMessage, {
         userId: args.userId,
+        role: "user",
+        content: args.message,
       });
-      
+
+      // Step 2: Get recent conversation history for context
+      const recentMessages = await ctx.runQuery(api.messages.getRecentMessages, {
+        userId: args.userId,
+        limit: 10, // Last 10 messages (5 exchanges)
+      });
+
+      // Step 3: Get user information for language preference
+      const user = await ctx.runQuery(api.users.getUser, { 
+        userId: args.userId 
+      });
+
       if (!user) {
         throw new AppError("USER_NOT_FOUND", {
           en: "User not found. Please restart the bot with /start",
-          ar: "المستخدم غير موجود. يرجى إعادة تشغيل البوت باستخدام /start",
+          ar: "لم يتم العثور على المستخدم. يرجى إعادة تشغيل البوت بـ /start",
         });
       }
 
-      // Step 2: Fetch recent transactions for context (last 3)
-      const recentTransactions = await ctx.runQuery(api.transactions.getRecentTransactions, {
-        userId: args.userId,
-        limit: 3,
-      }).catch(() => []); // Gracefully handle if transactions query doesn't exist yet
+      // Step 4: Get recent transactions for context
+      const recentTransactions = await ctx.runQuery(
+        api.transactions.getRecentTransactions,
+        {
+          userId: args.userId,
+          limit: 3,
+        }
+      );
 
-      // Step 3: Build enriched system prompt
+      // Step 5: Format conversation history for AI
+      const conversationHistory = recentMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      // Step 6: Generate contextualized system prompt
       const systemPrompt = generateSystemPrompt({
         userLanguage: user.languagePreference as "ar" | "en",
         userName: user.firstName,
-        recentTransactions: recentTransactions?.map((tx: any) => ({
+        recentTransactions: recentTransactions.map((tx) => ({
           type: tx.type,
           amount: tx.amount,
           description: tx.description,
           category: tx.category,
         })),
-        conversationHistory: args.conversationHistory,
+        conversationHistory,
       });
 
-      // Step 4: Get function definitions
+      // Step 7: Get function definitions
       const functions = getFunctionDefinitions();
 
-      // Step 5: Call Rork API
+      // Step 8: Call Rork API
       console.log(`[AI] Calling Rork API for user ${args.userId}`);
+      console.log(`[AI] Message: "${args.message}"`);
+      console.log(`[AI] System prompt length: ${systemPrompt.length} chars`);
+      console.log(`[AI] Functions count: ${functions.length}`);
+      console.log(`[AI] Conversation history: ${conversationHistory.length} messages`);
+      
       const apiStartTime = Date.now();
       
       const rorkResponse = await callRorkLLM({
@@ -91,16 +108,26 @@ export const processUserMessage = action({
       
       const apiLatency = Date.now() - apiStartTime;
       console.log(`[AI] Rork API responded in ${apiLatency}ms`);
+      console.log(`[AI] Response content length: ${rorkResponse.content?.length || 0} chars`);
 
       // Log slow responses
       if (apiLatency > 3000) {
         console.warn(`[AI] Slow API response: ${apiLatency}ms for user ${args.userId}`);
       }
 
-      // Step 6: Parse AI response
+      // Step 9: Parse AI response
       const parsedResponse = parseAIResponse(rorkResponse);
 
-      // Step 7: Log structured data (anonymized)
+      // Step 10: Store AI response in conversation history
+      await ctx.runMutation(api.messages.addMessage, {
+        userId: args.userId,
+        role: "assistant",
+        content: rorkResponse.content,
+        intent: parsedResponse.intent,
+        entities: parsedResponse.entities,
+      });
+
+      // Step 11: Log structured data (anonymized)
       const totalLatency = Date.now() - startTime;
       console.log(`[AI] Processed message in ${totalLatency}ms`, {
         userId: args.userId,
@@ -109,29 +136,27 @@ export const processUserMessage = action({
         nextAction: parsedResponse.nextAction,
         apiLatency,
         totalLatency,
+        historyLength: conversationHistory.length,
       });
 
       return parsedResponse;
-
     } catch (error) {
       const totalLatency = Date.now() - startTime;
-      
-      // Log error with context
       console.error(`[AI] Error processing message (${totalLatency}ms):`, {
         userId: args.userId,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof AppError ? error.message : "Unknown error",
         errorCode: error instanceof AppError ? error.code : "UNKNOWN",
       });
 
-      // Re-throw AppError for user-facing messages
+      // Re-throw AppErrors (user-facing)
       if (error instanceof AppError) {
         throw error;
       }
 
-      // Wrap unexpected errors
+      // Convert unknown errors to generic AppError
       throw new AppError("AI_PROCESSING_ERROR", {
-        en: "Failed to process your message. Please try again or rephrase.",
-        ar: "فشل في معالجة رسالتك. يرجى المحاولة مرة أخرى أو إعادة الصياغة.",
+        en: "Sorry, I'm having trouble understanding your message right now. Please try again.",
+        ar: "عذراً، أواجه صعوبة في فهم رسالتك الآن. يرجى المحاولة مرة أخرى.",
       });
     }
   },

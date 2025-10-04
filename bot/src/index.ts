@@ -1,5 +1,5 @@
 import { createBot, setupShutdownHandlers } from "./bot";
-import { registerCommandHandlers, registerMessageHandlers } from "./handlers";
+import { registerCommandHandlers, registerMessageHandlers, registerCallbackHandlers } from "./handlers";
 import { performStartupHealthCheck } from "./services/convexHealth";
 import logger from "./utils/logger";
 
@@ -40,10 +40,11 @@ async function main() {
       botName: botInfo.first_name,
     });
 
-    // Step 4: Register command and message handlers
+    // Step 4: Register command, message, and callback handlers
     logger.info("📋 Startup sequence", { step: "4/5 - Registering handlers" });
     registerCommandHandlers(bot);
     registerMessageHandlers(bot);
+    registerCallbackHandlers(bot);
 
     // Step 5: Setup graceful shutdown handlers
     logger.info("📋 Startup sequence", { step: "5/5 - Setting up shutdown handlers" });
