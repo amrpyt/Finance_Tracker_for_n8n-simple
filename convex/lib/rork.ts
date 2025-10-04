@@ -86,15 +86,14 @@ function getRorkConfig(): RorkConfig {
 }
 
 /**
- * Get API key from environment variable (required for production)
+ * Get API key from environment variable (optional for RORK public endpoint)
  */
-function getApiKey(): string {
+function getApiKey(): string | null {
   const apiKey = process.env.RORK_API_KEY;
-  if (!apiKey) {
-    throw new AppError("MISSING_API_KEY", {
-      en: "API key is required to use AI services",
-      ar: "مفتاح API مطلوب لاستخدام خدمات الذكاء الاصطناعي",
-    });
+  // Allow public access if API key is placeholder or missing
+  if (!apiKey || apiKey === "your-api-key-here") {
+    console.log("[Rork] Using public endpoint (no API key)");
+    return null;
   }
   return apiKey;
 }
@@ -129,11 +128,14 @@ export async function callRorkLLM(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
 
-      // Build headers with required authorization
+      // Build headers with optional authorization
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
       };
+      
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      }
 
         // Make API request with correct format (messages array) and proper function calling
         const requestBody = {
@@ -214,7 +216,7 @@ export async function callRorkLLM(
       }
 
       // Parse successful response
-      const data = await response.json();
+      const data: any = await response.json();
             // Log the response for debugging
         console.log("[Rork] API Response:", JSON.stringify(data).substring(0, 500));
         

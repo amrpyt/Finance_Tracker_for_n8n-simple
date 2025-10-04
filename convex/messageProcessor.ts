@@ -415,8 +415,9 @@ function parseAIResponse(response: any, originalText: string): AIIntentResult {
 function detectIntentFallback(text: string): AIIntentResult {
   const lower = text.toLowerCase();
   
-  // Expense patterns
-  if (/\b(spent|paid|bought|cost|صرف|دفع|اشتر)\b/.test(lower)) {
+  // Expense patterns (English and Arabic)
+  if (/\b(spent|paid|bought|cost|purchase)\b/.test(lower) || 
+      /(صرف|دفع|اشتر|كلف|شري)/i.test(text)) {
     return {
       intent: "expense",
       confidence: 0.7,
@@ -425,8 +426,9 @@ function detectIntentFallback(text: string): AIIntentResult {
     };
   }
   
-  // Income patterns  
-  if (/\b(earned|received|salary|income|راتب|استلم|كسب)\b/.test(lower)) {
+  // Income patterns (English and Arabic)
+  if (/\b(earned|received|salary|income|got.*paid)\b/.test(lower) || 
+      /(راتب|استلم|كسب|حصل|دخل|مكاف)/i.test(text)) {
     return {
       intent: "income",
       confidence: 0.7,
