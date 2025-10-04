@@ -86,10 +86,17 @@ function getRorkConfig(): RorkConfig {
 }
 
 /**
- * Get API key from environment variable (optional - Rork endpoint works without auth)
+ * Get API key from environment variable (required for production)
  */
-function getApiKey(): string | null {
-  return process.env.RORK_API_KEY || null;
+function getApiKey(): string {
+  const apiKey = process.env.RORK_API_KEY;
+  if (!apiKey) {
+    throw new AppError("MISSING_API_KEY", {
+      en: "API key is required to use AI services",
+      ar: "مفتاح API مطلوب لاستخدام خدمات الذكاء الاصطناعي",
+    });
+  }
+  return apiKey;
 }
 
 /**
@@ -122,14 +129,11 @@ export async function callRorkLLM(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
 
-      // Build headers (Authorization is optional)
+      // Build headers with required authorization
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
       };
-      
-      if (apiKey) {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
 
         // Make API request with correct format (messages array) and proper function calling
         const requestBody = {
@@ -230,10 +234,18 @@ export async function callRorkLLM(
         }
 
         // Extract content from various possible response formats
-        const content = data.completion || data.content || data.message || data.response || "";
+        const content = data.completion || data.content || data.message || data.response;
+
+        // Validate that we have some content
+        if (!content && !data.function_call) {
+          throw new AppError("INVALID_RESPONSE", {
+            en: "Invalid response from AI service - no content or function call",
+            ar: "استجابة غير صالحة من خدمة الذكاء الاصطناعي - لا يوجد محتوى أو استدعاء دالة",
+          });
+        }
 
         return {
-          content: content,
+          content: content || "",
           functionCall: data.function_call ? {
             name: data.function_call.name,
             arguments: data.function_call.arguments,
