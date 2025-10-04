@@ -342,6 +342,16 @@ async function detectIntent(ctx: any, text: string, userProfile: UserProfile): P
     console.log(`[messageProcessor] AI result:`, result);
 
     if (result.success) {
+      // If AI understood but didn't use function call, send its response directly
+      if (result.intent === "unknown" && result.content) {
+        return {
+          intent: "ai_response",
+          confidence: result.confidence || 0.8,
+          entities: { aiResponse: result.content },
+          nextAction: "execute",
+        };
+      }
+      
       return {
         intent: mapFunctionNameToIntent(result.intent),
         confidence: result.confidence || 0.8,
@@ -535,6 +545,14 @@ async function routeByIntent(ctx: any, update: ProcessedUpdate, userProfile: Use
 
     case "help":
       return await handleHelpCommand(ctx, update, userProfile);
+
+    case "ai_response":
+      // Send AI's direct response to user
+      await ctx.runAction(internal.telegramAPI.sendMessage, {
+        chatId: update.chatId,
+        text: intent.entities.aiResponse,
+      });
+      return { success: true, reason: "ai_direct_response" };
 
     default:
       await ctx.runAction(internal.telegramAPI.sendMessage, {

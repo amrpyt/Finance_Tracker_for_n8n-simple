@@ -132,14 +132,17 @@ export const processUserMessage = internalAction({
       const { getFunctionDefinitions } = await import("./prompts/functions");
       const { generateSystemPrompt } = await import("./prompts/system");
       
-      // Get user context for personalized prompt
+      const functions = getFunctionDefinitions();
+      
       const userContext = {
         userLanguage: language as "ar" | "en",
         userName: "User", // Could be enhanced to get actual name
       };
       
       const systemPrompt = generateSystemPrompt(userContext);
-      const functions = getFunctionDefinitions();
+      
+      console.log(`[rorkIntegration] Using ${functions.length} functions:`, functions.map(f => f.name));
+      console.log(`[rorkIntegration] System prompt (first 200 chars):`, systemPrompt.substring(0, 200));
       
       const url = `${RORK_CONFIG.baseUrl}${RORK_CONFIG.endpoint}`;
       
